@@ -16,6 +16,7 @@ import Random exposing (Seed)
 -- Misc functions
 
 port randomSeed : Float
+port btnColor : String
 
 initialSeed : Seed
 initialSeed = Random.initialSeed <| round randomSeed
@@ -83,6 +84,7 @@ type Question
   = Pending Idol (List Idol) QuestionType
   | End
   | Debug String
+  | Init
 
 type Action
   = Restart
@@ -99,7 +101,7 @@ type alias Model =
 init : (Model, Effects Action)
 init =
   ({ score = [],
-     question = Debug "init",
+     question = Init,
      idols = Nothing,
      seed = initialSeed },
      getRandomIdol ())
@@ -173,7 +175,7 @@ update action model =
           let score = if response.name /= idol.name
                       then False
                       else True in
-          let (question, seed) = if (List.length model.score) /= 10
+          let (question, seed) = if (List.length model.score) /= 9
                                  then pickQuestion model.idols model.seed
                                  else (End, model.seed) in
           ({model | question = question, seed = seed, score = (score::model.score)}, Effects.none)
@@ -190,7 +192,17 @@ update action model =
 idolOptions : Signal.Address Action -> QuestionType -> Idol -> List Idol -> List Html
 idolOptions address question idol idols =
   let format element =
-        img [src element.chibi, onClick address (Answer question element)] [text element.name]
+        figure
+          [class "trivia_idol"
+          ]
+            [img
+               [ src element.chibi
+               , onClick address (Answer question element)
+               ] [text element.name]
+            , figcaption
+               []
+               [ text element.name ]
+            ]
   in
   let aux acc l =
         case l of
@@ -203,23 +215,67 @@ formatQuestion : QuestionType -> Html
 formatQuestion q =
   let s = case q of
             Hobby s ->
-              "Who likes " ++ s ++ "?"
+              "Who likes " ++ (String.toLower s) ++ "?"
 
             Food s ->
-              "Who likes " ++ s ++ "?"
+              "Who likes " ++ (String.toLower s) ++ "?"
 
             LeastFood s ->
-              "Who dislikes " ++ s ++ "?"
+              "Who dislikes " ++ (String.toLower s) ++ "?"
   in
-  text s
+    div
+      [ class ("question text-" ++ btnColor) ]
+      [text s]
+
+formatProgress : List Bool -> Html
+formatProgress l =
+  div [ class "progress" ]
+      (List.map (\b -> div
+                   [ class ("progress-bar progress-bar-"
+                              ++ (if b then "success" else "danger")) ] []) (List.reverse l))
+
+formatComment : Int -> String
+formatComment score =
+  if (score <= 0) then "Ouch!"
+  else if (score <= 3) then "Oh no..."
+  else if (score <= 5) then "Meh."
+  else if (score <= 7) then "Not bad!"
+  else if (score <= 8) then "Yay~"
+  else if score == 9 then "Awesome!"
+  else "Woohoo!"
 
 resultView : Signal.Address Action -> Model -> Html
 resultView addr model =
   let score = List.foldl (\answer s -> if answer then s + 1 else s) 0 model.score in
-  div
-    []
-      [text ("Your score is: " ++ toString score),
-         button [onClick addr Restart] [text "try again"]
+  let fprogress = formatProgress model.score in
+  let comment = formatComment score in
+  div [ class "final_result" ]
+      [ div
+         [ class "row"]
+         [ div [ class "col-md-6" ]
+             [ h3 [] [ text "Final Score" ]
+             , span [ class "final_score" ] [ text (toString score) ]
+             ]
+         , div [ class "col-md-6" ]
+             [ p [ class "score_comment" ]
+                [ text comment ]
+             , p [ class "text-right" ]
+                 [a [ href ("http://twitter.com/share?text=" ++ (toString score) ++ "/10 on School Idol Trivia! " ++ comment ++ " Play with me:&via=schoolidolu&url=http://schoolido.lu/trivia/&hashtags=LLSIF,LoveLive,スクフェス")
+                    , target "_blank"
+                    , class "btn btn-Cool"
+                    ]
+                    [ img [src "/static/twitter.png"] []
+                    , text " Tweet your score"
+                    ]
+                 , br [] [], br [] []
+                 , a [ onClick addr Restart
+                    , href "#"
+                    ] [text "Try again"]
+                 , br [] [], br [] []
+                 ]
+             ]
+         ]
+         , fprogress
       ]
 
 
@@ -232,10 +288,17 @@ view address model =
 
   Pending idol choices question ->
     let fquestion = formatQuestion question in
+    let fprogress = formatProgress model.score in
     case model.idols of
-      Just idols -> div [] ([fquestion] ++ (idolOptions address question idol choices))
+      Just idols -> div [] ([fquestion] ++ (idolOptions address question idol choices) ++
+                              [fprogress])
 
       Nothing -> text "Weird"
+
+  Init ->
+      i
+        [ class "flaticon-loading" ]
+        []
  in
  div
  [ class "sit"]
