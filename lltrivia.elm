@@ -104,7 +104,7 @@ init =
      question = Init,
      idols = Nothing,
      seed = initialSeed },
-     getRandomIdol ())
+     getIdols ())
 
 -- Decoders
 
@@ -320,8 +320,8 @@ view address model =
 
 -- Main and effects
 
-getRandomIdol : () -> Effects Action
-getRandomIdol str =
+getIdols : () -> Effects Action
+getIdols _ =
  Http.get idolDecoder url
     |> Task.toMaybe
     |> Task.map GotIdols
