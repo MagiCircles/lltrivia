@@ -124,6 +124,8 @@ idolDecoder =
   in
   "results" := Json.list idol
 
+-- update
+
 pickIdol : List Idol -> Seed -> Maybe (Idol, Seed)
 pickIdol l = takeRandom l
 
@@ -233,7 +235,7 @@ view address model =
     case model.idols of
       Just idols -> div [] ([fquestion] ++ (idolOptions address question idol choices))
 
-      Nothing -> text "lol"
+      Nothing -> text "Weird"
  in
  div
  [ class "sit"]

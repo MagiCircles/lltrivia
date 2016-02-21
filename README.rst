@@ -1,6 +1,6 @@
 SchoolIdolTrivia
 ================
 
-A simple trivia game writtin using Elm.
+A simple trivia game written using Elm.
 
 To start just launch the following command: `elm-make lltrivia.elm --output trivia.js`
