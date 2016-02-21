@@ -148,7 +148,7 @@ pickQuestion idols seed =
                           mapQuestion Hobby idol.hobbies in
           case takeRandom questions seed of
             Just (question, seed) ->
-              let (choices, seed) = randomChoices idol 3 idols seed in
+              let (choices, seed) = randomChoices idol 5 idols seed in
               let (shuffled, seed) = shuffleList choices seed in
               (Pending idol shuffled question, seed)
 
@@ -266,6 +266,20 @@ resultView addr model =
                     ]
                     [ img [src "/static/twitter.png"] []
                     , text " Tweet your score"
+                    ]
+                 , br [] [], br [] []
+                 , Html.form [ method "POST"
+                        , action "/ajax/trivia/share/"
+                        ]
+                    [ input [ type' "hidden"
+                            , name "score"
+                            , value (toString score) ]
+                        []
+                    , input [ type' "submit"
+                            , value "Share on School Idol Tomodachi"
+                            , class "btn btn-link"
+                            ]
+                        []
                     ]
                  , br [] [], br [] []
                  , a [ onClick addr Restart
