@@ -89,8 +89,6 @@ type Question
 type Action
   = Restart
   | GotIdols (Maybe (List Idol))
-  | Share Int
-  | Shared
   | Answer QuestionType Idol
 
 type alias Model =
@@ -189,12 +187,6 @@ update action model =
       let (question, seed) = pickQuestion i model.seed in
       ({model | question = question, seed = seed, idols = i}, Effects.none)
 
-    Share i ->
-      (model, shareOnSukutomo i)
-
-    Shared ->
-      (model, Effects.none)
-
 -- Views related stuff
 
 idolOptions : Signal.Address Action -> QuestionType -> Idol -> List Idol -> List Html
@@ -276,7 +268,6 @@ resultView addr model =
                     , text " Tweet your score"
                     ]
                  , br [] [], br [] []
-                 , button [onClick addr (Share score)] [text "share"]
                  , Html.form [ method "POST"
                         , action "/ajax/trivia/share/"
                         ]
@@ -334,17 +325,6 @@ getIdols _ =
  Http.get idolDecoder url
     |> Task.toMaybe
     |> Task.map GotIdols
-    |> Effects.task
-
-shareOnSukutomo : Int -> Effects Action
-shareOnSukutomo score =
-  let headers =  [("encoding", "multipart/form-data")] in
-  let body = (Http.string ("score=" ++ (toString score))) in
-  let url = "/ajax/trivia/share/" in
-  let request = { verb = "POST", headers = headers, url = url, body = body } in
-  Http.send Http.defaultSettings request
-    |> Task.toMaybe
-    |> Task.map (\_ -> Shared)
     |> Effects.task
 
 app =
