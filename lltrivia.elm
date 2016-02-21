@@ -338,7 +338,11 @@ getIdols _ =
 
 shareOnSukutomo : Int -> Effects Action
 shareOnSukutomo score =
-  Http.post Json.string "/ajax/trivia/share/" (Http.string ("score=" ++ (toString score)))
+  let headers =  [("encoding", "multipart/form-data")] in
+  let body = (Http.string ("score=" ++ (toString score))) in
+  let url = "/ajax/trivia/share/" in
+  let request = { verb = "POST", headers = headers, url = url, body = body } in
+  Http.send Http.defaultSettings request
     |> Task.toMaybe
     |> Task.map (\_ -> Shared)
     |> Effects.task
