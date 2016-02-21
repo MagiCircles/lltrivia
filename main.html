@@ -1,0 +1,20 @@
+<html>
+
+<head>
+  <title>LLTrivia</title>
+  <script src="trivia.js"></script>
+  <style>
+  </style>
+</head>
+
+<body>
+  <div id="elm-trivia"></div>
+</body>
+
+<script type="text/javascript">
+  var div = document.getElementById('elm-trivia');
+
+  var stamps = Elm.embed(Elm.Main, div, {randomSeed: Math.floor((Math.random() - 0.5) * 4294967295)});
+</script>
+
+</html>
