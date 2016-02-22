@@ -5,6 +5,8 @@ import Signal exposing (Signal, Address)
 import Effects exposing (Effects, Never)
 import Json.Decode as Json exposing ((:=))
 import Http
+import Array
+import Random.Array exposing (shuffle, choose, sample)
 import String
 import Task
 import StartApp
@@ -21,42 +23,27 @@ port btnColor : String
 initialSeed : Seed
 initialSeed = Random.initialSeed <| round randomSeed
 
-randomInt : Int -> Seed -> (Int, Seed)
-randomInt upper seed = (Random.generate (Random.int 0 upper) seed)
-
 nth : Int -> List a -> Maybe a
 nth n l =
   case l of
      [] -> Nothing
      xs::x -> if n <= 0 then Just xs else nth (n - 1) x
 
-takeRandom : List a -> Seed -> Maybe (a, Seed)
-takeRandom l seed =
-  let len = List.length l - 1 in
-  let (qid, s) = randomInt len seed in
-  case nth qid l of
-    Just n -> Just (n, s)
-    Nothing -> Nothing
-
-randomChoices : Idol -> Int -> List Idol -> Seed -> (List Idol, Seed)
+randomChoices : Idol -> Int -> Array.Array Idol -> Seed -> (List Idol, Seed)
 randomChoices idol num idols seed =
-  let aux idolss n acc seed =
+  let aux arr n acc seed =
         if n == 0 then (acc, seed) else
-          case takeRandom idolss seed of
+          let (choosen, seed, rest) = choose seed arr in
+          case choosen of
             Nothing -> (acc, seed)
-
-            Just (choosen, seed) -> aux (List.filter ((/=) choosen) idolss)
-                                    (n - 1) (choosen::acc) seed
+            Just choosen -> aux rest (n - 1) (choosen::acc) seed
   in
-    aux (List.filter ((/=) idol) idols) num [idol] seed
+    aux idols num [idol] seed
 
 shuffleList : List Idol -> Seed -> (List Idol, Seed)
 shuffleList idols seed =
-  let len = List.length idols in
-  case idols of
-    [] -> (idols, seed)
-    x::[] -> (idols, seed)
-    x::xs -> randomChoices x (len - 1) idols seed
+  let (shuffled, seed) = shuffle seed (Array.fromList idols) in
+  (Array.toList shuffled, seed)
 
 -- Types and constants
 
@@ -128,9 +115,6 @@ idolDecoder =
 
 -- update
 
-pickIdol : List Idol -> Seed -> Maybe (Idol, Seed)
-pickIdol l = takeRandom l
-
 mapQuestion : (String -> a) -> Maybe String -> List a -> List a
 mapQuestion ctor element l =
   case element of
@@ -141,21 +125,21 @@ pickQuestion : Maybe (List Idol) -> Seed -> (Question, Seed)
 pickQuestion idols seed =
   case idols of
     Just idols ->
-      case pickIdol idols seed of
-        Just (idol, seed) ->
+      case choose seed (Array.fromList idols) of
+        (Just idol, seed, idols) ->
           let questions = mapQuestion Food idol.favorite_food [] |>
                           mapQuestion LeastFood idol.least_favorite_food |>
                           mapQuestion Hobby idol.hobbies in
-          case takeRandom questions seed of
-            Just (question, seed) ->
+          case choose seed (Array.fromList questions) of
+            (Just question, seed, _) ->
               let (choices, seed) = randomChoices idol 5 idols seed in
               let (shuffled, seed) = shuffleList choices seed in
               (Pending idol shuffled question, seed)
 
-            Nothing ->
+            (_, _, _) ->
               (Debug "Error while choosing a question", seed)
 
-        Nothing ->
+        (_, _, _)  ->
           (Debug "Error while picking an idol for this question", seed)
 
     Nothing ->
