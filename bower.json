@@ -1,0 +1,22 @@
+{
+  "name": "lltrivia",
+  "homepage": "http://schoolido.lu/trivia/",
+  "authors": [
+    "Lamagicien <decorne.en@gmail.com>"
+  ],
+  "description": "Test your knowledge of LoveLive School Idol Festival trivia",
+  "main": "trivia.js",
+  "moduleType": [],
+  "keywords": [
+    "game"
+  ],
+  "license": "BSD3",
+  "private": true,
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
