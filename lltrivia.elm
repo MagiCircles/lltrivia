@@ -62,13 +62,35 @@ type alias Idol =
   , hobbies : Maybe String
   }
 
-type QuestionType
-  = Food String
-  | LeastFood String
-  | Hobby String
+type IdolQuestionType
+  = Food String Idol (List Idol)
+  | LeastFood String Idol (List Idol)
+  | Hobby String Idol (List Idol)
+
+idolAnswer : IdolQuestionType -> Idol
+idolAnswer question =
+  case question of
+    Food _ idol _ -> idol
+    LeastFood _ idol _ -> idol
+    Hobby _ idol _ -> idol
+
+idolChoices : IdolQuestionType -> List Idol
+idolChoices question =
+  case question of
+    Food _ _ idols -> idols
+    LeastFood _ _ idols -> idols
+    Hobby _ _ idols -> idols
+
+type CardQuestionType
+  = NotYet
+  | Implemented
 
 type Question
-  = Pending Idol (List Idol) QuestionType
+  = IdolQuestion IdolQuestionType
+  | CardQuestion CardQuestionType
+
+type State
+  = Pending Question
   | End
   | Debug String
   | Init
@@ -76,11 +98,11 @@ type Question
 type Action
   = Restart
   | GotIdols (Maybe (List Idol))
-  | Answer QuestionType Idol
+  | IdolAnswer Idol
 
 type alias Model =
   { idols : Maybe (List Idol)
-  , question : Question
+  , state : State
   , seed : Seed
   , score : List Bool
   }
@@ -88,7 +110,7 @@ type alias Model =
 init : (Model, Effects Action)
 init =
   ({ score = [],
-     question = Init,
+     state = Init,
      idols = Nothing,
      seed = initialSeed },
      getIdols ())
@@ -121,7 +143,7 @@ mapQuestion ctor element l =
     Nothing -> l
     Just e -> (ctor e)::l
 
-pickQuestion : Maybe (List Idol) -> Seed -> (Question, Seed)
+pickQuestion : Maybe (List Idol) -> Seed -> (State, Seed)
 pickQuestion idols seed =
   case idols of
     Just idols ->
@@ -134,7 +156,7 @@ pickQuestion idols seed =
             (Just question, seed, _) ->
               let (choices, seed) = randomChoices idol 5 idols seed in
               let (shuffled, seed) = shuffleList choices seed in
-              (Pending idol shuffled question, seed)
+              (Pending (IdolQuestion (question idol shuffled)), seed)
 
             (_, _, _) ->
               (Debug "Error while choosing a question", seed)
@@ -145,43 +167,45 @@ pickQuestion idols seed =
     Nothing ->
       (Debug "Error while fetching idols", seed)
 
+checkIdolAnswer : IdolQuestionType -> Idol -> Bool
+checkIdolAnswer question idol =
+  let answer = idolAnswer question in
+  idol.name == answer.name
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
     Restart ->
       let (question, seed) = pickQuestion model.idols model.seed in
-      ({question = question, seed = seed, score = [], idols = model.idols}, Effects.none)
+      ({ state = question, seed = seed, score = [], idols = model.idols}, Effects.none)
 
-    Answer question idol ->
-      case model.question of
-        Pending response _ _ ->
-          let score = if response.name /= idol.name
-                      then False
-                      else True in
+    IdolAnswer idol ->
+      case model.state of
+        Pending (IdolQuestion question) ->
+          let score = checkIdolAnswer question idol in
           let (question, seed) = if (List.length model.score) /= 9
                                  then pickQuestion model.idols model.seed
                                  else (End, model.seed) in
-          ({model | question = question, seed = seed, score = (score::model.score)}, Effects.none)
+          ({model | state = question, seed = seed, score = (score::model.score)}, Effects.none)
 
         _ ->
-          ({model | question = (Debug "Error")}, Effects.none)
+          ({model | state = (Debug "Error")}, Effects.none)
 
     GotIdols i ->
       let (question, seed) = pickQuestion i model.seed in
-      ({model | question = question, seed = seed, idols = i}, Effects.none)
+      ({model | state = question, seed = seed, idols = i}, Effects.none)
 
 -- Views related stuff
 
-idolOptions : Signal.Address Action -> QuestionType -> Idol -> List Idol -> List Html
-idolOptions address question idol idols =
+idolOptions : Signal.Address Action -> List Idol -> List Html
+idolOptions address idols =
   let format element =
         figure
           [class "trivia_idol"
           ]
             [img
                [ src element.chibi
-               , onClick address (Answer question element)
+               , onClick address (IdolAnswer element)
                ] [text element.name]
             , figcaption
                []
@@ -195,16 +219,16 @@ idolOptions address question idol idols =
   in
     aux [] idols
 
-formatQuestion : QuestionType -> Html
+formatQuestion : IdolQuestionType -> Html
 formatQuestion q =
   let s = case q of
-            Hobby s ->
+            Hobby s _ _->
               "Who likes " ++ (String.toLower s) ++ "?"
 
-            Food s ->
+            Food s _ _ ->
               "Who likes " ++ (String.toLower s) ++ "?"
 
-            LeastFood s ->
+            LeastFood s _ _ ->
               "Who dislikes " ++ (String.toLower s) ++ "?"
   in
     div
@@ -279,16 +303,23 @@ resultView addr model =
 
 view : Signal.Address Action -> Model -> Html
 view address model =
- let str = case model.question of
+ let str = case model.state of
   Debug s -> text s
 
   End -> resultView address model
 
-  Pending idol choices question ->
-    let fquestion = formatQuestion question in
+  Pending question ->
+    let content =
+          case question of
+            IdolQuestion question ->
+              let fquestion = formatQuestion question in
+              let foptions = idolOptions address (idolChoices question) in
+              [fquestion] ++ foptions
+            _ -> []
+    in
     let fprogress = formatProgress model.score in
     case model.idols of
-      Just idols -> div [] ([fquestion] ++ (idolOptions address question idol choices) ++
+      Just idols -> div [] (content ++
                               [fprogress])
 
       Nothing -> text "Weird"
