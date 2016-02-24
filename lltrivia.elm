@@ -1,3 +1,4 @@
+import Sukutomo exposing (Idol, Card)
 import Html exposing (..)
 import Html.Attributes exposing (..)
 import Signal exposing (Signal, Address)
@@ -56,24 +57,6 @@ idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size
 random_card_url : String
 random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
 
-type alias Idol =
-  { name : String
-  , japanese_name : String
-  , chibi : String
-  , attribute : String
-  , birthday : String
-  , height : Int
-  , favorite_food : Maybe String
-  , least_favorite_food : Maybe String
-  , hobbies : Maybe String
-  }
-
-type alias Card =
-  { name : String
-  , japanese_name : String
-  , rarity : String
-  , attribute : String
-  }
 
 type IdolQuestionType
   = Food String Idol (List Idol)
@@ -95,8 +78,8 @@ idolChoices question =
     Hobby _ _ idols -> idols
 
 type CardQuestionType
-  = NotYet
-  | Implemented
+  = Attribute String Card
+  | Rarity String Card
 
 type Question
   = IdolQuestion IdolQuestionType
@@ -156,6 +139,8 @@ cardDecoder =
           ** ("japanese_name" := Json.string)
           ** ("rarity" := Json.string)
           ** ("attribute" := Json.string)
+          ** (Json.maybe ("transparent_image" := Json.string))
+          ** (Json.maybe ("transparent_idolized_image" := Json.string))
   in
   "results" := Json.tuple1 (\card -> card) card
 
@@ -166,6 +151,28 @@ mapQuestion ctor element l =
   case element of
     Nothing -> l
     Just e -> (ctor e)::l
+
+mapMaybe : List (Maybe a) -> List a
+mapMaybe l =
+  let aux l acc =
+    case l of
+      (Just x)::xs -> aux xs (x::acc)
+      Nothing::xs -> aux xs acc
+      [] -> acc
+  in aux l []
+
+
+pickCardQuestion : Card -> Seed -> (State, Seed)
+pickCardQuestion card seed =
+  let questions = [Attribute, Rarity] in
+  case sample seed (Array.fromList questions) of
+    (Just question, seed) ->
+      let (transparent, seed) = sample seed (Array.fromList <| mapMaybe [card.transparent_image, card.transparent_idolized_image]) in
+      case transparent of
+        Just transparent -> ((Pending (CardQuestion (question transparent card))), seed)
+        Nothing -> ((Debug "err"), seed)
+    (Nothing, seed) ->
+      ((Debug "Error while picking card question"), seed)
 
 pickQuestion : Maybe (List Idol) -> Seed -> (State, Seed)
 pickQuestion idols seed =
@@ -223,10 +230,15 @@ update action model =
 
     GotRandomCard c ->
       case c of
-        Just card -> ({ model | state = Debug card.name}, Effects.none)
+        Just card ->
+          let (question, seed) = pickCardQuestion card model.seed in
+          ({ model | state = question, seed = seed }, Effects.none)
         Nothing -> ({ model | state = Debug "failure"}, Effects.none)
 
 -- Views related stuff
+
+cardOptions : Signal.Address Action -> List Html
+cardOptions  address = []
 
 idolOptions : Signal.Address Action -> List Idol -> List Html
 idolOptions address idols =
@@ -249,6 +261,12 @@ idolOptions address idols =
           x::xs -> aux ((format x)::acc) xs
   in
     aux [] idols
+
+formatCardQuestion : CardQuestionType -> Html
+formatCardQuestion q =
+  case q of
+    Attribute transparent card -> div [] [text "attribute", img [src transparent] []]
+    Rarity transparent card -> div [] [text "rarity", img [src transparent] []]
 
 formatQuestion : IdolQuestionType -> Html
 formatQuestion q =
@@ -346,15 +364,13 @@ view address model =
               let fquestion = formatQuestion question in
               let foptions = idolOptions address (idolChoices question) in
               [fquestion] ++ foptions
-            _ -> []
+            CardQuestion question ->
+              let fquestion = formatCardQuestion question in
+              let foptions = cardOptions address  in
+              [fquestion] ++ foptions
     in
     let fprogress = formatProgress model.score in
-    case model.idols of
-      Just idols -> div [] (content ++
-                              [fprogress])
-
-      Nothing -> text "Weird"
-
+    div [] (content ++ [fprogress])
   Init ->
       i
         [ class "flaticon-loading" ]
