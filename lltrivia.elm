@@ -193,8 +193,10 @@ pickQuestion idols seed =
 
 checkIdolAnswer : IdolQuestionType -> Idol -> Bool
 checkIdolAnswer question idol =
-  let answer = idolAnswer question in
-  idol.name == answer.name
+  case question of
+    Food _ answer _ -> answer.favorite_food == idol.favorite_food
+    LeastFood _ answer _ -> answer.least_favorite_food == idol.least_favorite_food
+    Hobby _ answer _ -> answer.hobbies == idol.hobbies
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
