@@ -47,8 +47,14 @@ shuffleList idols seed =
 
 -- Types and constants
 
-url : String
-url = "http://schoolido.lu/api/idols/?ordering=random&cards__is_special=False&page_size=100"
+api_url : String
+api_url = "http://schoolido.lu/api/"
+
+idols_url : String
+idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size=100"
+
+random_card_url : String
+random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
 
 type alias Idol =
   { name : String
@@ -60,6 +66,13 @@ type alias Idol =
   , favorite_food : Maybe String
   , least_favorite_food : Maybe String
   , hobbies : Maybe String
+  }
+
+type alias Card =
+  { name : String
+  , japanese_name : String
+  , rarity : String
+  , attribute : String
   }
 
 type IdolQuestionType
@@ -98,6 +111,7 @@ type State
 type Action
   = Restart
   | GotIdols (Maybe (List Idol))
+  | GotRandomCard (Maybe Card)
   | IdolAnswer Idol
 
 type alias Model =
@@ -134,6 +148,16 @@ idolDecoder =
           ** (Json.maybe ("hobbies" := Json.string))
   in
   "results" := Json.list idol
+
+cardDecoder : Json.Decoder Card
+cardDecoder =
+  let card =
+    Json.map Card ("name" := Json.string)
+          ** ("japanese_name" := Json.string)
+          ** ("rarity" := Json.string)
+          ** ("attribute" := Json.string)
+  in
+  "results" := Json.tuple1 (\card -> card) card
 
 -- update
 
@@ -194,6 +218,11 @@ update action model =
     GotIdols i ->
       let (question, seed) = pickQuestion i model.seed in
       ({model | state = question, seed = seed, idols = i}, Effects.none)
+
+    GotRandomCard c ->
+      case c of
+        Just card -> ({ model | state = Debug card.name}, Effects.none)
+        Nothing -> ({ model | state = Debug "failure"}, Effects.none)
 
 -- Views related stuff
 
@@ -337,9 +366,16 @@ view address model =
 
 getIdols : () -> Effects Action
 getIdols _ =
- Http.get idolDecoder url
+ Http.get idolDecoder idols_url
     |> Task.toMaybe
     |> Task.map GotIdols
+    |> Effects.task
+
+getRandomCard : () -> Effects Action
+getRandomCard _ =
+  Http.get cardDecoder random_card_url
+    |> Task.toMaybe
+    |> Task.map GotRandomCard
     |> Effects.task
 
 app =
