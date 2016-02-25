@@ -89,6 +89,12 @@ questionToHtml question btnColor =
       [ class ("question text-" ++ btnColor) ]
       [s]
 
+stringOptions : Signal.Address Action -> Question -> List String -> List Html
+stringOptions address question strings =
+  let format str =
+        a [href "#", onClick address (Answer <| (answerQuestion (StringAnswer str) question))] [text str] in
+  List.map format strings
+
 idolOptions : Signal.Address Action -> Question -> List Idol -> List Html
 idolOptions address question idols =
   let format element =
@@ -120,6 +126,6 @@ optionsToHtml address question =
 
     IdolLeastFood _ _ idols -> idolOptions address question idols
 
-    CardAttribute _ _ -> []
+    CardAttribute _ _ -> stringOptions address question ["UR", "SR", "R", "N"]
 
-    CardRarity _ _ -> []
+    CardRarity _ _ -> stringOptions address question ["Smile", "Cool", "Pure", "All"]

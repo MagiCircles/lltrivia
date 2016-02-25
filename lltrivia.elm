@@ -60,6 +60,11 @@ idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size
 random_card_url : String
 random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
 
+type Quizz
+  = Idols
+  | Cards
+  | All
+
 type State
   = Pending Question.Question
   | End
@@ -68,17 +73,21 @@ type State
 
 type alias Model =
   { idols : Maybe (List Idol)
+  , quizz : Quizz
   , state : State
+  , card : Maybe Card
   , seed : Seed
   , score : List Bool
   }
 
 init : (Model, Effects Action)
 init =
-  ({ score = [],
-     state = Init,
-     idols = Nothing,
-     seed = initialSeed },
+  ({ score = []
+   , quizz = Idols
+   , state = Init
+   , idols = Nothing
+   , card = Nothing
+   , seed = initialSeed },
      getIdols ())
 
 -- Decoders
@@ -130,67 +139,82 @@ mapMaybe l =
       [] -> acc
   in aux l []
 
-
 pickCardQuestion : Card -> Seed -> (State, Seed)
 pickCardQuestion card seed =
   let questions = [Question.CardAttribute, Question.CardRarity] in
+
   case sample seed (Array.fromList questions) of
     (Just question, seed) ->
       let (transparent, seed) = sample seed (Array.fromList <| mapMaybe [card.transparent_image, card.transparent_idolized_image]) in
       case transparent of
         Just transparent -> ((Pending <| Question.newQuestion (question transparent card)), seed)
         Nothing -> ((Debug "err"), seed)
+
     (Nothing, seed) ->
       ((Debug "Error while picking card question"), seed)
 
-pickQuestion : Maybe (List Idol) -> Seed -> (State, Seed)
-pickQuestion idols seed =
-  case idols of
-    Just idols ->
-      case choose seed (Array.fromList idols) of
-        (Just idol, seed, idols) ->
-          let questions = mapQuestion Question.IdolFood idol.favorite_food [] |>
-                          mapQuestion Question.IdolLeastFood idol.least_favorite_food |>
-                          mapQuestion Question.IdolHobby idol.hobbies in
-          case choose seed (Array.fromList questions) of
-            (Just question, seed, _) ->
-              let (choices, seed) = randomChoices idol 5 idols seed in
-              let (shuffled, seed) = shuffleList choices seed in
-              (Pending <| Question.newQuestion (question idol shuffled), seed)
+pickIdolQuestion : List Idol -> Seed -> (State, Seed)
+pickIdolQuestion idols seed =
+  case choose seed (Array.fromList idols) of
+    (Just idol, seed, idols) ->
+      let questions = mapQuestion Question.IdolFood idol.favorite_food [] |>
+                      mapQuestion Question.IdolLeastFood idol.least_favorite_food |>
+                      mapQuestion Question.IdolHobby idol.hobbies in
+      case choose seed (Array.fromList questions) of
+        (Just question, seed, _) ->
+          let (choices, seed) = randomChoices idol 5 idols seed in
+          let (shuffled, seed) = shuffleList choices seed in
+          (Pending <| Question.newQuestion (question idol shuffled), seed)
 
-            (_, _, _) ->
-              (Debug "Error while choosing a question", seed)
+        (_, _, _) ->
+          (Debug "Error while choosing a question", seed)
 
-        (_, _, _)  ->
+    (_, _, _)  ->
           (Debug "Error while picking an idol for this question", seed)
 
-    Nothing ->
-      (Debug "Error while fetching idols", seed)
+pickQuestion : Model -> (Model, Effects Action)
+pickQuestion model =
+  case model.quizz of
+    Idols -> case model.idols of
+               Nothing -> (model, getIdols ())
+               Just idols ->
+                 let (state, seed) = pickIdolQuestion idols model.seed in
+                 let model = { model | state = state, seed = seed } in
+                 (model, Effects.none)
+
+    Cards -> case model.card of
+               Nothing -> (model, getRandomCard ())
+               Just card ->
+                 let (state, seed) = pickCardQuestion card seed in
+                 let model = { model | state = state, seed = seed, card = Nothing } in
+                 (model, Effects.none)
+
+    All -> (model, Effects.none)
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
     Question.Restart ->
-      let (question, seed) = pickQuestion model.idols model.seed in
-      ({ state = question, seed = seed, score = [], idols = model.idols}, Effects.none)
+      let model = { model | score = [] } in
+      pickQuestion model
 
     Question.Answer answer ->
       let score = Question.checkAnswer answer in
-      let (question, seed) = if (List.length model.score) /= 9
-                             then pickQuestion model.idols model.seed
-                             else (End, model.seed) in
-      ({model | state = question, seed = seed, score = (score::model.score)}, Effects.none)
+      let model = { model | score = (score::model.score) } in
+      if (List.length model.score) /= 10
+      then
+        pickQuestion model
+      else
+        let model = { model | state = End } in
+        (model, Effects.none)
 
     Question.GotIdols i ->
-      let (question, seed) = pickQuestion i model.seed in
-      ({model | state = question, seed = seed, idols = i}, Effects.none)
+      let model = { model | idols = i } in
+      pickQuestion model
 
-    Question.GotRandomCard c ->
-      case c of
-        Just card ->
-          let (question, seed) = pickCardQuestion card model.seed in
-          ({ model | state = question, seed = seed }, Effects.none)
-        Nothing -> ({ model | state = Debug "failure"}, Effects.none)
+    Question.GotRandomCard card ->
+      let model = { model | card = card } in
+      pickQuestion model
 
 -- Views related stuff
 
