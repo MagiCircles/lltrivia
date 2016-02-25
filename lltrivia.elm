@@ -1,6 +1,8 @@
 import Sukutomo exposing (Idol, Card)
+import Question
 import Html exposing (..)
 import Html.Attributes exposing (..)
+import Html.Events exposing (onClick)
 import Signal exposing (Signal, Address)
 
 import Effects exposing (Effects, Never)
@@ -11,7 +13,6 @@ import Random.Array exposing (shuffle, choose, sample)
 import String
 import Task
 import StartApp
-import Html.Events exposing (onClick)
 
 import Random
 import Random exposing (Seed)
@@ -20,6 +21,8 @@ import Random exposing (Seed)
 
 port randomSeed : Float
 port btnColor : String
+
+type alias Action = Question.Action
 
 initialSeed : Seed
 initialSeed = Random.initialSeed <| round randomSeed
@@ -57,45 +60,11 @@ idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size
 random_card_url : String
 random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
 
-
-type IdolQuestionType
-  = Food String Idol (List Idol)
-  | LeastFood String Idol (List Idol)
-  | Hobby String Idol (List Idol)
-
-idolAnswer : IdolQuestionType -> Idol
-idolAnswer question =
-  case question of
-    Food _ idol _ -> idol
-    LeastFood _ idol _ -> idol
-    Hobby _ idol _ -> idol
-
-idolChoices : IdolQuestionType -> List Idol
-idolChoices question =
-  case question of
-    Food _ _ idols -> idols
-    LeastFood _ _ idols -> idols
-    Hobby _ _ idols -> idols
-
-type CardQuestionType
-  = Attribute String Card
-  | Rarity String Card
-
-type Question
-  = IdolQuestion IdolQuestionType
-  | CardQuestion CardQuestionType
-
 type State
-  = Pending Question
+  = Pending Question.Question
   | End
   | Debug String
   | Init
-
-type Action
-  = Restart
-  | GotIdols (Maybe (List Idol))
-  | GotRandomCard (Maybe Card)
-  | IdolAnswer Idol
 
 type alias Model =
   { idols : Maybe (List Idol)
@@ -164,12 +133,12 @@ mapMaybe l =
 
 pickCardQuestion : Card -> Seed -> (State, Seed)
 pickCardQuestion card seed =
-  let questions = [Attribute, Rarity] in
+  let questions = [Question.CardAttribute, Question.CardRarity] in
   case sample seed (Array.fromList questions) of
     (Just question, seed) ->
       let (transparent, seed) = sample seed (Array.fromList <| mapMaybe [card.transparent_image, card.transparent_idolized_image]) in
       case transparent of
-        Just transparent -> ((Pending (CardQuestion (question transparent card))), seed)
+        Just transparent -> ((Pending <| Question.newQuestion (question transparent card)), seed)
         Nothing -> ((Debug "err"), seed)
     (Nothing, seed) ->
       ((Debug "Error while picking card question"), seed)
@@ -180,14 +149,14 @@ pickQuestion idols seed =
     Just idols ->
       case choose seed (Array.fromList idols) of
         (Just idol, seed, idols) ->
-          let questions = mapQuestion Food idol.favorite_food [] |>
-                          mapQuestion LeastFood idol.least_favorite_food |>
-                          mapQuestion Hobby idol.hobbies in
+          let questions = mapQuestion Question.IdolFood idol.favorite_food [] |>
+                          mapQuestion Question.IdolLeastFood idol.least_favorite_food |>
+                          mapQuestion Question.IdolHobby idol.hobbies in
           case choose seed (Array.fromList questions) of
             (Just question, seed, _) ->
               let (choices, seed) = randomChoices idol 5 idols seed in
               let (shuffled, seed) = shuffleList choices seed in
-              (Pending (IdolQuestion (question idol shuffled)), seed)
+              (Pending <| Question.newQuestion (question idol shuffled), seed)
 
             (_, _, _) ->
               (Debug "Error while choosing a question", seed)
@@ -198,37 +167,25 @@ pickQuestion idols seed =
     Nothing ->
       (Debug "Error while fetching idols", seed)
 
-checkIdolAnswer : IdolQuestionType -> Idol -> Bool
-checkIdolAnswer question idol =
-  case question of
-    Food _ answer _ -> answer.favorite_food == idol.favorite_food
-    LeastFood _ answer _ -> answer.least_favorite_food == idol.least_favorite_food
-    Hobby _ answer _ -> answer.hobbies == idol.hobbies
-
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
-    Restart ->
+    Question.Restart ->
       let (question, seed) = pickQuestion model.idols model.seed in
       ({ state = question, seed = seed, score = [], idols = model.idols}, Effects.none)
 
-    IdolAnswer idol ->
-      case model.state of
-        Pending (IdolQuestion question) ->
-          let score = checkIdolAnswer question idol in
-          let (question, seed) = if (List.length model.score) /= 9
-                                 then pickQuestion model.idols model.seed
-                                 else (End, model.seed) in
-          ({model | state = question, seed = seed, score = (score::model.score)}, Effects.none)
+    Question.Answer answer ->
+      let score = Question.checkAnswer answer in
+      let (question, seed) = if (List.length model.score) /= 9
+                             then pickQuestion model.idols model.seed
+                             else (End, model.seed) in
+      ({model | state = question, seed = seed, score = (score::model.score)}, Effects.none)
 
-        _ ->
-          ({model | state = (Debug "Error")}, Effects.none)
-
-    GotIdols i ->
+    Question.GotIdols i ->
       let (question, seed) = pickQuestion i model.seed in
       ({model | state = question, seed = seed, idols = i}, Effects.none)
 
-    GotRandomCard c ->
+    Question.GotRandomCard c ->
       case c of
         Just card ->
           let (question, seed) = pickCardQuestion card model.seed in
@@ -236,53 +193,6 @@ update action model =
         Nothing -> ({ model | state = Debug "failure"}, Effects.none)
 
 -- Views related stuff
-
-cardOptions : Signal.Address Action -> List Html
-cardOptions  address = []
-
-idolOptions : Signal.Address Action -> List Idol -> List Html
-idolOptions address idols =
-  let format element =
-        figure
-          [class "trivia_idol"
-          ]
-            [img
-               [ src element.chibi
-               , onClick address (IdolAnswer element)
-               ] [text element.name]
-            , figcaption
-               []
-               [ text element.name ]
-            ]
-  in
-  let aux acc l =
-        case l of
-          [] -> acc
-          x::xs -> aux ((format x)::acc) xs
-  in
-    aux [] idols
-
-formatCardQuestion : CardQuestionType -> Html
-formatCardQuestion q =
-  case q of
-    Attribute transparent card -> div [] [text "attribute", img [src transparent] []]
-    Rarity transparent card -> div [] [text "rarity", img [src transparent] []]
-
-formatQuestion : IdolQuestionType -> Html
-formatQuestion q =
-  let s = case q of
-            Hobby s _ _->
-              "Who likes " ++ (String.toLower s) ++ "?"
-
-            Food s _ _ ->
-              "Who likes " ++ (String.toLower s) ++ "?"
-
-            LeastFood s _ _ ->
-              "Who dislikes " ++ (String.toLower s) ++ "?"
-  in
-    div
-      [ class ("question text-" ++ btnColor) ]
-      [text s]
 
 formatProgress : List Bool -> Html
 formatProgress l =
@@ -339,7 +249,7 @@ resultView addr model =
                         []
                     ]
                  , br [] [], br [] []
-                 , a [ onClick addr Restart
+                 , a [ onClick addr Question.Restart
                     , href "#"
                     ] [text "Try again"]
                  , br [] [], br [] []
@@ -358,19 +268,10 @@ view address model =
   End -> resultView address model
 
   Pending question ->
-    let content =
-          case question of
-            IdolQuestion question ->
-              let fquestion = formatQuestion question in
-              let foptions = idolOptions address (idolChoices question) in
-              [fquestion] ++ foptions
-            CardQuestion question ->
-              let fquestion = formatCardQuestion question in
-              let foptions = cardOptions address  in
-              [fquestion] ++ foptions
-    in
+    let fquestion = Question.questionToHtml question btnColor in
+    let foptions = Question.optionsToHtml address question in
     let fprogress = formatProgress model.score in
-    div [] (content ++ [fprogress])
+    div [] <| [fquestion] ++ foptions ++ [fprogress]
   Init ->
       i
         [ class "flaticon-loading" ]
@@ -386,14 +287,14 @@ getIdols : () -> Effects Action
 getIdols _ =
  Http.get idolDecoder idols_url
     |> Task.toMaybe
-    |> Task.map GotIdols
+    |> Task.map Question.GotIdols
     |> Effects.task
 
 getRandomCard : () -> Effects Action
 getRandomCard _ =
   Http.get cardDecoder random_card_url
     |> Task.toMaybe
-    |> Task.map GotRandomCard
+    |> Task.map Question.GotRandomCard
     |> Effects.task
 
 app =
