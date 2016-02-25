@@ -6,11 +6,17 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import String
 
+type Quizz
+  = Idols
+  | Cards
+  | All
+
 type Action
   = Restart
   | GotIdols (Maybe (List Idol))
   | GotRandomCard (Maybe Card)
   | Answer Question
+  | ChangeQuizz Quizz
 
 type alias Question =
   {  question : QuestionKind

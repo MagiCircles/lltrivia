@@ -60,11 +60,6 @@ idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size
 random_card_url : String
 random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
 
-type Quizz
-  = Idols
-  | Cards
-  | All
-
 type State
   = Pending Question.Question
   | End
@@ -73,7 +68,7 @@ type State
 
 type alias Model =
   { idols : Maybe (List Idol)
-  , quizz : Quizz
+  , quizz : Question.Quizz
   , state : State
   , card : Maybe Card
   , seed : Seed
@@ -83,7 +78,7 @@ type alias Model =
 init : (Model, Effects Action)
 init =
   ({ score = []
-   , quizz = Idols
+   , quizz = Question.Cards
    , state = Init
    , idols = Nothing
    , card = Nothing
@@ -172,25 +167,25 @@ pickIdolQuestion idols seed =
     (_, _, _)  ->
           (Debug "Error while picking an idol for this question", seed)
 
-pickQuestion : Quizz -> Model -> (Model, Effects Action)
+pickQuestion : Question.Quizz -> Model -> (Model, Effects Action)
 pickQuestion quizz model =
   case quizz of
-    Idols -> case model.idols of
+    Question.Idols -> case model.idols of
                Nothing -> (model, getIdols ())
                Just idols ->
                  let (state, seed) = pickIdolQuestion idols model.seed in
                  let model = { model | state = state, seed = seed } in
                  (model, Effects.none)
 
-    Cards -> case model.card of
+    Question.Cards -> case model.card of
                Nothing -> (model, getRandomCard ())
                Just card ->
                  let (state, seed) = pickCardQuestion card seed in
                  let model = { model | state = state, seed = seed, card = Nothing } in
                  (model, Effects.none)
 
-    All ->
-      let choices = Array.fromList [Cards, Idols] in
+    Question.All ->
+      let choices = Array.fromList [Question.Cards, Question.Idols] in
       let (choice, seed) = sample model.seed choices in
       let model = { model | seed = seed } in
         case choice of
@@ -202,6 +197,10 @@ update action model =
   case action of
     Question.Restart ->
       let model = { model | score = [] } in
+      pickQuestion model.quizz model
+
+    Question.ChangeQuizz quizz ->
+      let model = { model | score = [], quizz = quizz } in
       pickQuestion model.quizz model
 
     Question.Answer answer ->
@@ -224,6 +223,14 @@ update action model =
 
 -- Views related stuff
 
+formatQuizzButtons : Signal.Address Action -> Question.Quizz -> Html
+formatQuizzButtons addr quizz =
+  div [ class "quizzbuttons" ]
+      [ button [onClick addr (Question.ChangeQuizz Question.All)] [text "All"]
+      , button [onClick addr (Question.ChangeQuizz Question.Idols)] [text "Idols"]
+      , button [onClick addr (Question.ChangeQuizz Question.Cards)] [text "Cards"]]
+
+
 formatProgress : List Bool -> Html
 formatProgress l =
   div [ class "progress" ]
@@ -243,6 +250,7 @@ formatComment score =
 
 resultView : Signal.Address Action -> Model -> Html
 resultView addr model =
+  let quizzbuttons = formatQuizzButtons addr model.quizz in
   let score = List.foldl (\answer s -> if answer then s + 1 else s) 0 model.score in
   let fprogress = formatProgress model.score in
   let comment = formatComment score in
@@ -286,7 +294,8 @@ resultView addr model =
                  ]
              ]
          ]
-         , fprogress
+      , fprogress
+      , quizzbuttons
       ]
 
 
@@ -298,10 +307,11 @@ view address model =
   End -> resultView address model
 
   Pending question ->
+    let quizzbuttons = formatQuizzButtons address model.quizz in
     let fquestion = Question.questionToHtml question btnColor in
     let foptions = Question.optionsToHtml address question in
     let fprogress = formatProgress model.score in
-    div [] <| [fquestion] ++ foptions ++ [fprogress]
+    div [] <| [fquestion] ++ foptions ++ [fprogress, quizzbuttons]
   Init ->
       i
         [ class "flaticon-loading" ]
