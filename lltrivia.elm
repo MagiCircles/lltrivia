@@ -172,9 +172,9 @@ pickIdolQuestion idols seed =
     (_, _, _)  ->
           (Debug "Error while picking an idol for this question", seed)
 
-pickQuestion : Model -> (Model, Effects Action)
-pickQuestion model =
-  case model.quizz of
+pickQuestion : Quizz -> Model -> (Model, Effects Action)
+pickQuestion quizz model =
+  case quizz of
     Idols -> case model.idols of
                Nothing -> (model, getIdols ())
                Just idols ->
@@ -189,32 +189,38 @@ pickQuestion model =
                  let model = { model | state = state, seed = seed, card = Nothing } in
                  (model, Effects.none)
 
-    All -> (model, Effects.none)
+    All ->
+      let choices = Array.fromList [Cards, Idols] in
+      let (choice, seed) = sample model.seed choices in
+      let model = { model | seed = seed } in
+        case choice of
+          Just quizz -> pickQuestion quizz model
+          Nothing -> ({ model | state = Debug "Error while picking quizz" }, Effects.none)
 
 update : Action -> Model -> (Model, Effects Action)
 update action model =
   case action of
     Question.Restart ->
       let model = { model | score = [] } in
-      pickQuestion model
+      pickQuestion model.quizz model
 
     Question.Answer answer ->
       let score = Question.checkAnswer answer in
       let model = { model | score = (score::model.score) } in
       if (List.length model.score) /= 10
       then
-        pickQuestion model
+        pickQuestion model.quizz model
       else
         let model = { model | state = End } in
         (model, Effects.none)
 
     Question.GotIdols i ->
       let model = { model | idols = i } in
-      pickQuestion model
+      pickQuestion model.quizz model
 
     Question.GotRandomCard card ->
       let model = { model | card = card } in
-      pickQuestion model
+      pickQuestion model.quizz model
 
 -- Views related stuff
 
