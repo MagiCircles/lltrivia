@@ -28,6 +28,7 @@ type QuestionKind
   | IdolHobby String Idol (List Idol)
   | CardAttribute String Card
   | CardRarity String Card
+  | CardDetail String Idol (List Idol)
 
 type AnswerKind
   = IdolAnswer Idol
@@ -63,14 +64,19 @@ checkAnswer question =
             IdolAnswer i -> idol.hobbies == i.hobbies
             _ -> False
 
-        CardAttribute attribute _ ->
+        CardAttribute _ card ->
           case answer of
-            StringAnswer s -> s == attribute
+            StringAnswer s -> s == card.attribute
             _ -> False
 
-        CardRarity rarity _ ->
+        CardRarity _ card ->
           case answer of
-            StringAnswer s -> s == rarity
+            StringAnswer s -> s == card.rarity
+            _ -> False
+
+        CardDetail _ idol _ ->
+          case answer of
+            IdolAnswer i -> i.name == idol.name
             _ -> False
 
 questionToHtml : Question -> String -> Html
@@ -90,6 +96,10 @@ questionToHtml question btnColor =
 
             CardRarity transparent _ ->
               div [] [text "rarity", img [src transparent] []]
+
+            CardDetail image _ _ ->
+              div [] [text "detail", img [src image] []]
+
   in
     div
       [ class ("question text-" ++ btnColor) ]
@@ -132,6 +142,8 @@ optionsToHtml address question =
 
     IdolLeastFood _ _ idols -> idolOptions address question idols
 
-    CardAttribute _ _ -> stringOptions address question ["UR", "SR", "R", "N"]
+    CardRarity _ _ -> stringOptions address question ["UR", "SR", "R", "N"]
 
-    CardRarity _ _ -> stringOptions address question ["Smile", "Cool", "Pure", "All"]
+    CardAttribute _ _ -> stringOptions address question ["Smile", "Cool", "Pure", "All"]
+
+    CardDetail _ _ idols -> idolOptions address question idols

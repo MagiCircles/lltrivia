@@ -106,7 +106,9 @@ cardDecoder =
           ** ("japanese_name" := Json.string)
           ** ("rarity" := Json.string)
           ** ("attribute" := Json.string)
+          ** (Json.maybe ("card_image" := Json.string))
           ** (Json.maybe ("transparent_image" := Json.string))
+          ** (Json.maybe ("card_idolized_image" := Json.string))
           ** (Json.maybe ("transparent_idolized_image" := Json.string))
   in
   "results" := Json.tuple1 (\card -> card) card
@@ -119,28 +121,62 @@ mapQuestion ctor element l =
     Nothing -> l
     Just e -> (ctor e)::l
 
-mapMaybe : List (Maybe a) -> List a
+mapMaybe : List (Maybe a, Maybe b) -> List (a, b)
 mapMaybe l =
   let aux l acc =
     case l of
-      (Just x)::xs -> aux xs (x::acc)
-      Nothing::xs -> aux xs acc
+      (Just x, Just y)::xs -> aux xs ((x, y)::acc)
+      _::xs -> aux xs acc
       [] -> acc
   in aux l []
 
-pickCardQuestion : Card -> Seed -> (State, Seed)
-pickCardQuestion card seed =
-  let questions = [Question.CardAttribute, Question.CardRarity] in
+getIdolAndOptions : Seed -> String -> List Idol -> (Maybe (Idol, List Idol), Seed)
+getIdolAndOptions seed name idols =
+  let aux idols acc idol =
+      case idols of
+        [] -> (idol, acc)
+        x::xs ->
+          if x.name == name then
+            aux xs acc (Just x)
+          else
+            aux xs (x::acc) idol
+  in
+    case aux idols [] Nothing of
+      (Just idol, l) ->
+        let (choices, seed') = randomChoices idol 5 (Array.fromList idols) seed in
+        let (shuffled, seed'') = shuffleList choices seed' in
+        (Just (idol, shuffled), seed'')
+      (Nothing, _) ->
+        (Nothing, seed)
 
-  case sample seed (Array.fromList questions) of
-    (Just question, seed') ->
-      let (transparent, seed'') = sample seed' (Array.fromList <| mapMaybe [card.transparent_image, card.transparent_idolized_image]) in
-      case transparent of
-        Just transparent -> ((Pending <| Question.newQuestion (question transparent card)), seed'')
-        Nothing -> ((Debug "err"), seed'')
 
-    (Nothing, seed') ->
-      ((Debug "Error while picking card question"), seed')
+pickCardQuestion : Card -> Seed -> List Idol -> (State, Seed)
+pickCardQuestion card seed idols =
+  let (images, seed') =
+        sample seed (Array.fromList <|
+                       mapMaybe [(card.card_image, card.transparent_image),
+                                   (card.card_idolized_image, card.transparent_idolized_image)]) in
+  case images of
+    Just (card_image, transparent_image) ->
+      case getIdolAndOptions seed' card.name idols of
+        (Just (idol, idols), seed'') ->
+              let questions = [ Question.CardAttribute transparent_image card
+                              , Question.CardRarity transparent_image card
+                              , Question.CardDetail card_image idol idols
+                              ]
+              in
+                case sample seed'' (Array.fromList questions) of
+                  (Just question, seed''') ->
+                    (Pending <| Question.newQuestion question, seed''')
+
+                  (Nothing, seed''') ->
+                    (Debug "Error while picking question", seed''')
+
+        (Nothing, seed'') ->
+          (Debug "Error while finding the correct idol", seed'')
+
+    Nothing ->
+      (Debug "Error while picking idol type", seed')
 
 pickIdolQuestion : List Idol -> Seed -> (State, Seed)
 pickIdolQuestion idols seed =
@@ -163,28 +199,30 @@ pickIdolQuestion idols seed =
 
 pickQuestion : Question.Quizz -> Model -> (Model, Effects Action)
 pickQuestion quizz model =
-  case quizz of
-    Question.Idols -> case model.idols of
-               Nothing -> (model, getIdols ())
-               Just idols ->
-                 let (state, seed) = pickIdolQuestion idols model.seed in
-                 let model = { model | state = state, seed = seed } in
-                 (model, Effects.none)
+  case model.idols of
+    Nothing -> (model, getIdols ())
+    Just idols ->
+      case quizz of
+        Question.Idols ->
+          let (state, seed) = pickIdolQuestion idols model.seed in
+          let model = { model | state = state, seed = seed } in
+          (model, Effects.none)
 
-    Question.Cards -> case model.card of
-               Nothing -> (model, getRandomCard ())
-               Just card ->
-                 let (state, seed) = pickCardQuestion card model.seed in
-                 let model = { model | state = state, seed = seed, card = Nothing } in
-                 (model, Effects.none)
+        Question.Cards ->
+          case model.card of
+            Nothing -> (model, getRandomCard ())
+            Just card ->
+              let (state, seed) = pickCardQuestion card model.seed idols in
+              let model = { model | state = state, seed = seed, card = Nothing } in
+              (model, Effects.none)
 
-    Question.All ->
-      let choices = Array.fromList [Question.Cards, Question.Idols] in
-      let (choice, seed) = sample model.seed choices in
-      let model = { model | seed = seed } in
-        case choice of
-          Just quizz -> pickQuestion quizz model
-          Nothing -> ({ model | state = Debug "Error while picking quizz" }, Effects.none)
+        Question.All ->
+          let choices = Array.fromList [Question.Cards, Question.Idols] in
+          let (choice, seed) = sample model.seed choices in
+          let model = { model | seed = seed } in
+          case choice of
+            Just quizz -> pickQuestion quizz model
+            Nothing -> ({ model | state = Debug "Error while picking quizz" }, Effects.none)
 
 
 update : Action -> Model -> (Model, Effects Action)

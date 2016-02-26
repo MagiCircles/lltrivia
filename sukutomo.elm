@@ -17,6 +17,8 @@ type alias Card =
   , japanese_name : String
   , rarity : String
   , attribute : String
+  , card_image : Maybe String
   , transparent_image : Maybe String
+  , card_idolized_image : Maybe String
   , transparent_idolized_image : Maybe String
   }
