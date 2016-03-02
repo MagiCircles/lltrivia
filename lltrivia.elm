@@ -72,7 +72,7 @@ type alias Model =
 init : (Model, Effects Action)
 init =
   ({ score = []
-   , quizz = Question.Cards
+   , quizz = Question.All
    , state = Init
    , idols = Nothing
    , card = Nothing
@@ -258,10 +258,25 @@ update action model =
 
 formatQuizzButtons : Signal.Address Action -> Question.Quizz -> Html
 formatQuizzButtons addr quizz =
-  div [ class "quizzbuttons" ]
-      [ button [onClick addr (Question.ChangeQuizz Question.All)] [text "All"]
-      , button [onClick addr (Question.ChangeQuizz Question.Idols)] [text "Idols"]
-      , button [onClick addr (Question.ChangeQuizz Question.Cards)] [text "Cards"]]
+  ul [ class "nav nav-tabs" ]
+       [
+        li [ class "active" ] [
+              a [ href "#all", onClick addr (Question.ChangeQuizz Question.All) ] [
+                   i [ class "flaticon-album" ] []
+                  , text " All"
+                  ]
+             ]
+       , li [] [
+              a [ href "#cards", onClick addr (Question.ChangeQuizz Question.Cards) ] [
+                   i [ class "flaticon-cards" ] []
+                  , text " Cards"
+                  ] ]
+       , li [] [
+              a [ href "#idols", onClick addr (Question.ChangeQuizz Question.Idols) ] [
+                   i [ class "flaticon-idolized" ] []
+                  , text " Idols"
+                  ] ]
+       ]
 
 
 formatProgress : List Bool -> Html
@@ -288,7 +303,9 @@ resultView addr model =
   let fprogress = formatProgress model.score in
   let comment = formatComment score in
   div [ class "final_result" ]
-      [ div
+      [
+       quizzbuttons,
+       div
          [ class "row"]
          [ div [ class "col-md-6" ]
              [ h3 [] [ text "Final Score" ]
@@ -328,7 +345,6 @@ resultView addr model =
              ]
          ]
       , fprogress
-      , quizzbuttons
       ]
 
 
@@ -344,7 +360,7 @@ view address model =
     let fquestion = Question.questionToHtml question btnColor in
     let foptions = Question.optionsToHtml address question in
     let fprogress = formatProgress model.score in
-    div [] <| [fquestion] ++ foptions ++ [fprogress, quizzbuttons]
+    div [] <| [quizzbuttons, fquestion] ++ foptions ++ [fprogress]
   Init ->
       i
         [ class "flaticon-loading" ]

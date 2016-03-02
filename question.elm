@@ -6,6 +6,8 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (onClick)
 import String
 
+port btnColor : String
+
 type Quizz
   = Idols
   | Cards
@@ -92,13 +94,38 @@ questionToHtml question btnColor =
               text <| "Who dislikes " ++ (String.toLower s) ++ "?"
 
             CardAttribute transparent _ ->
-              div [] [text "attribute", img [src transparent] []]
+              div [ class "row" ] [
+                     div [ class "col-md-7" ] [
+                            span [ class "question-with-image" ] [ text "What is the attribute of this card?" ]
+                           ]
+                    , div [ class "col-md-5" ] [
+                             img [ class "image-with-question"
+                                 , src transparent] []
+                            ]
+                    ]
 
             CardRarity transparent _ ->
-              div [] [text "rarity", img [src transparent] []]
+              div [ class "row" ] [
+                     div [ class "col-md-7" ] [
+                            span [ class "question-with-image" ] [ text "What is the rarity of this card?" ]
+                           ]
+                    , div [ class "col-md-5" ] [
+                             img [ class "image-with-question"
+                                 , src transparent] []
+                            ]
+                    ]
 
             CardDetail image _ _ ->
-              div [] [text "detail", img [src image] []]
+              div [ class "row" ] [
+                     div [ class "col-md-7" ] [
+                            span [ class "question-with-image" ] [ text "Who is the idol in this card?" ]
+                           ]
+                    , div [ class "col-md-5" ] [
+                             div [ class "image-question-detail"
+                                 , style [ ("background-image", "url('" ++ image ++ "')") ]
+                                 ] []
+                            ]
+                    ]
 
   in
     div
@@ -110,6 +137,14 @@ stringOptions address question strings =
   let format str =
         a [href "#", onClick address (Answer <| (answerQuestion (StringAnswer str) question))] [text str] in
   List.map format strings
+
+imageOptions : Signal.Address Action -> Question -> List (String, String) -> List Html
+imageOptions address question images =
+  let format (image, str) =
+        a [ href "#", onClick address (Answer <| (answerQuestion (StringAnswer str) question)) ] [
+             img [ src image, alt str, class "choice-image" ] []
+            ] in
+  List.map format images
 
 idolOptions : Signal.Address Action -> Question -> List Idol -> List Html
 idolOptions address question idols =
@@ -142,8 +177,18 @@ optionsToHtml address question =
 
     IdolLeastFood _ _ idols -> idolOptions address question idols
 
-    CardRarity _ _ -> stringOptions address question ["UR", "SR", "R", "N"]
+    CardRarity _ _ -> imageOptions address question
+                       [ ("http://i.schoolido.lu/static/N" ++ btnColor ++ ".png", "N")
+                       , ("http://i.schoolido.lu/static/R" ++ btnColor ++ ".png", "R")
+                       , ("http://i.schoolido.lu/static/SR" ++ btnColor ++ ".png", "SR")
+                       , ("http://i.schoolido.lu/static/UR" ++ btnColor ++ ".png", "UR")
+                       ]
 
-    CardAttribute _ _ -> stringOptions address question ["Smile", "Cool", "Pure", "All"]
+    CardAttribute _ _ -> imageOptions address question
+                         [ ("http://i.schoolido.lu/static/Smile.png", "Smile")
+                         , ("http://i.schoolido.lu/static/Pure.png", "Pure")
+                         , ("http://i.schoolido.lu/static/Cool.png", "Cool")
+                         , ("http://i.schoolido.lu/static/All.png", "All")
+                         ]
 
     CardDetail _ _ idols -> idolOptions address question idols
