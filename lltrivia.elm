@@ -261,18 +261,24 @@ formatQuizzButtons : Signal.Address Action -> Question.Quizz -> Html
 formatQuizzButtons addr quizz =
   ul [ class "nav nav-tabs" ]
        [
-        li [ class "active" ] [
+        li (case quizz of
+              Question.All -> [ class "active" ]
+              _ -> []) [
               a [ href "#all", onClick addr (Question.ChangeQuizz Question.All) ] [
                    i [ class "flaticon-album" ] []
                   , text " All"
                   ]
              ]
-       , li [] [
+       , li (case quizz of
+              Question.Cards -> [ class "active" ]
+              _ -> []) [
               a [ href "#cards", onClick addr (Question.ChangeQuizz Question.Cards) ] [
                    i [ class "flaticon-cards" ] []
                   , text " Cards"
                   ] ]
-       , li [] [
+       , li (case quizz of
+              Question.Idols -> [ class "active" ]
+              _ -> []) [
               a [ href "#idols", onClick addr (Question.ChangeQuizz Question.Idols) ] [
                    i [ class "flaticon-idolized" ] []
                   , text " Idols"
