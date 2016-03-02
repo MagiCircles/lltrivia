@@ -16,7 +16,7 @@ type Quizz
 type Action
   = Restart
   | GotIdols (Maybe (List Idol))
-  | GotRandomCard (Maybe Card)
+  | GotRandomCards (Maybe (List Card))
   | Answer Question
   | ChangeQuizz Quizz
 

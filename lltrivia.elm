@@ -51,8 +51,8 @@ api_url = "http://schoolido.lu/api/"
 idols_url : String
 idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size=100"
 
-random_card_url : String
-random_card_url = api_url ++ "cards/?ordering=random&page_size=1"
+random_cards_url : String
+random_cards_url = api_url ++ "cards/?ordering=random&page_size=10"
 
 type State
   = Pending Question.Question
@@ -64,7 +64,7 @@ type alias Model =
   { idols : Maybe (List Idol)
   , quizz : Question.Quizz
   , state : State
-  , card : Maybe Card
+  , cards : Maybe (List Card)
   , seed : Seed
   , score : List Bool
   }
@@ -75,7 +75,7 @@ init =
    , quizz = Question.All
    , state = Init
    , idols = Nothing
-   , card = Nothing
+   , cards = Nothing
    , seed = initialSeed },
      getIdols ())
 
@@ -99,8 +99,8 @@ idolDecoder =
   in
   "results" := Json.list idol
 
-cardDecoder : Json.Decoder Card
-cardDecoder =
+cardsDecoder : Json.Decoder (List Card)
+cardsDecoder =
   let card =
     Json.map Card ("name" := Json.string)
           ** ("japanese_name" := Json.string)
@@ -111,7 +111,7 @@ cardDecoder =
           ** (Json.maybe ("card_idolized_image" := Json.string))
           ** (Json.maybe ("transparent_idolized_image" := Json.string))
   in
-  "results" := Json.tuple1 (\card -> card) card
+  "results" := Json.list card
 
 -- update
 
@@ -143,7 +143,7 @@ getIdolAndOptions seed name idols =
   in
     case aux idols [] Nothing of
       (Just idol, l) ->
-        let (choices, seed') = randomChoices idol 5 (Array.fromList idols) seed in
+        let (choices, seed') = randomChoices idol 5 (Array.fromList l) seed in
         let (shuffled, seed'') = shuffleList choices seed' in
         (Just (idol, shuffled), seed'')
       (Nothing, _) ->
@@ -209,11 +209,12 @@ pickQuestion quizz model =
           (model, Effects.none)
 
         Question.Cards ->
-          case model.card of
-            Nothing -> (model, getRandomCard ())
-            Just card ->
+          case model.cards of
+            Nothing -> (model, getRandomCards ())
+            Just [] -> (model, getRandomCards ())
+            Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in
-              let model = { model | state = state, seed = seed, card = Nothing } in
+              let model = { model | state = state, seed = seed, cards = (Just cards) } in
               (model, Effects.none)
 
         Question.All ->
@@ -250,8 +251,8 @@ update action model =
       let model = { model | idols = i } in
       pickQuestion model.quizz model
 
-    Question.GotRandomCard card ->
-      let model = { model | card = card } in
+    Question.GotRandomCards cards ->
+      let model = { model | cards = cards } in
       pickQuestion model.quizz model
 
 -- Views related stuff
@@ -379,11 +380,11 @@ getIdols _ =
     |> Task.map Question.GotIdols
     |> Effects.task
 
-getRandomCard : () -> Effects Action
-getRandomCard _ =
-  Http.get cardDecoder random_card_url
+getRandomCards : () -> Effects Action
+getRandomCards _ =
+  Http.get cardsDecoder random_cards_url
     |> Task.toMaybe
-    |> Task.map Question.GotRandomCard
+    |> Task.map Question.GotRandomCards
     |> Effects.task
 
 app =
