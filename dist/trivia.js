@@ -11620,8 +11620,8 @@ Elm.Question.make = function (_elm) {
       });
       return A2(aux,_U.list([]),idols);
    });
-   var GotRandomCard = function (a) {
-      return {ctor: "GotRandomCard",_0: a};
+   var GotRandomCards = function (a) {
+      return {ctor: "GotRandomCards",_0: a};
    };
    var GotIdols = function (a) {
       return {ctor: "GotIdols",_0: a};
@@ -11697,7 +11697,7 @@ Elm.Question.make = function (_elm) {
                                  ,All: All
                                  ,Restart: Restart
                                  ,GotIdols: GotIdols
-                                 ,GotRandomCard: GotRandomCard
+                                 ,GotRandomCards: GotRandomCards
                                  ,Answer: Answer
                                  ,ChangeQuizz: ChangeQuizz
                                  ,Question: Question
@@ -13162,7 +13162,7 @@ Elm.Main.make = function (_elm) {
       "results",
       $Json$Decode.list(idol));
    }();
-   var cardDecoder = function () {
+   var cardsDecoder = function () {
       var card = A2(_op["**"],
       A2(_op["**"],
       A2(_op["**"],
@@ -13190,14 +13190,15 @@ Elm.Main.make = function (_elm) {
       $Json$Decode.string)));
       return A2($Json$Decode._op[":="],
       "results",
-      A2($Json$Decode.tuple1,
-      function (card) {
-         return card;
-      },
-      card));
+      $Json$Decode.list(card));
    }();
    var Model = F6(function (a,b,c,d,e,f) {
-      return {idols: a,quizz: b,state: c,card: d,seed: e,score: f};
+      return {idols: a
+             ,quizz: b
+             ,state: c
+             ,cards: d
+             ,seed: e
+             ,score: f};
    });
    var Init = {ctor: "Init"};
    var Debug = function (a) {    return {ctor: "Debug",_0: a};};
@@ -13214,13 +13215,13 @@ Elm.Main.make = function (_elm) {
       $Question.GotIdols,
       $Task.toMaybe(A2($Http.get,idolDecoder,idols_url))));
    };
-   var random_card_url = A2($Basics._op["++"],
+   var random_cards_url = A2($Basics._op["++"],
    api_url,
-   "cards/?ordering=random&page_size=1");
-   var getRandomCard = function (_p3) {
+   "cards/?ordering=random&page_size=10&is_special=False");
+   var getRandomCards = function (_p3) {
       return $Effects.task(A2($Task.map,
-      $Question.GotRandomCard,
-      $Task.toMaybe(A2($Http.get,cardDecoder,random_card_url))));
+      $Question.GotRandomCards,
+      $Task.toMaybe(A2($Http.get,cardsDecoder,random_cards_url))));
    };
    var shuffleList = F2(function (idols,seed) {
       var _p4 = A2($Random$Array.shuffle,
@@ -13287,7 +13288,11 @@ Elm.Main.make = function (_elm) {
       var _p10 = A3(aux,idols,_U.list([]),$Maybe.Nothing);
       if (_p10._0.ctor === "Just") {
             var _p13 = _p10._0._0;
-            var _p11 = A4(randomChoices,_p13,5,$Array.fromList(idols),seed);
+            var _p11 = A4(randomChoices,
+            _p13,
+            5,
+            $Array.fromList(_p10._1),
+            seed);
             var choices = _p11._0;
             var seed$ = _p11._1;
             var _p12 = A2(shuffleList,choices,seed$);
@@ -13394,7 +13399,7 @@ Elm.Main.make = function (_elm) {
          var _p24 = model.idols;
          if (_p24.ctor === "Nothing") {
                return {ctor: "_Tuple2"
-                      ,_0: model
+                      ,_0: _U.update(model,{state: Init})
                       ,_1: getIdols({ctor: "_Tuple0"})};
             } else {
                var _p31 = _p24._0;
@@ -13405,18 +13410,24 @@ Elm.Main.make = function (_elm) {
                     var seed = _p26._1;
                     var model = _U.update(model,{state: state,seed: seed});
                     return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
-                  case "Cards": var _p27 = model.card;
+                  case "Cards": var _p27 = model.cards;
                     if (_p27.ctor === "Nothing") {
                           return {ctor: "_Tuple2"
-                                 ,_0: model
-                                 ,_1: getRandomCard({ctor: "_Tuple0"})};
+                                 ,_0: _U.update(model,{state: Init})
+                                 ,_1: getRandomCards({ctor: "_Tuple0"})};
                        } else {
-                          var _p28 = A3(pickCardQuestion,_p27._0,model.seed,_p31);
-                          var state = _p28._0;
-                          var seed = _p28._1;
-                          var model = _U.update(model,
-                          {state: state,seed: seed,card: $Maybe.Nothing});
-                          return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
+                          if (_p27._0.ctor === "[]") {
+                                return {ctor: "_Tuple2"
+                                       ,_0: _U.update(model,{state: Init})
+                                       ,_1: getRandomCards({ctor: "_Tuple0"})};
+                             } else {
+                                var _p28 = A3(pickCardQuestion,_p27._0._0,model.seed,_p31);
+                                var state = _p28._0;
+                                var seed = _p28._1;
+                                var model = _U.update(model,
+                                {state: state,seed: seed,cards: $Maybe.Just(_p27._0._1)});
+                                return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
+                             }
                        }
                   default: var choices = $Array.fromList(_U.list([$Question.Cards
                                                                  ,$Question.Idols]));
@@ -13458,7 +13469,7 @@ Elm.Main.make = function (_elm) {
               }
          case "GotIdols": var model = _U.update(model,{idols: _p32._0});
            return A2(pickQuestion,model.quizz,model);
-         default: var model = _U.update(model,{card: _p32._0});
+         default: var model = _U.update(model,{cards: _p32._0});
            return A2(pickQuestion,model.quizz,model);}
    });
    var btnColor = Elm.Native.Port.make(_elm).inbound("btnColor",
@@ -13502,7 +13513,7 @@ Elm.Main.make = function (_elm) {
                    ,quizz: $Question.All
                    ,state: Init
                    ,idols: $Maybe.Nothing
-                   ,card: $Maybe.Nothing
+                   ,cards: $Maybe.Nothing
                    ,seed: initialSeed}
               ,_1: getIdols({ctor: "_Tuple0"})};
    var app = $StartApp.start({init: init
@@ -13518,7 +13529,7 @@ Elm.Main.make = function (_elm) {
                              ,shuffleList: shuffleList
                              ,api_url: api_url
                              ,idols_url: idols_url
-                             ,random_card_url: random_card_url
+                             ,random_cards_url: random_cards_url
                              ,Pending: Pending
                              ,End: End
                              ,Debug: Debug
@@ -13526,7 +13537,7 @@ Elm.Main.make = function (_elm) {
                              ,Model: Model
                              ,init: init
                              ,idolDecoder: idolDecoder
-                             ,cardDecoder: cardDecoder
+                             ,cardsDecoder: cardsDecoder
                              ,mapQuestion: mapQuestion
                              ,mapMaybe: mapMaybe
                              ,getIdolAndOptions: getIdolAndOptions
@@ -13540,7 +13551,7 @@ Elm.Main.make = function (_elm) {
                              ,resultView: resultView
                              ,view: view
                              ,getIdols: getIdols
-                             ,getRandomCard: getRandomCard
+                             ,getRandomCards: getRandomCards
                              ,app: app
                              ,main: main};
 };

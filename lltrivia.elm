@@ -52,7 +52,7 @@ idols_url : String
 idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size=100"
 
 random_cards_url : String
-random_cards_url = api_url ++ "cards/?ordering=random&page_size=10"
+random_cards_url = api_url ++ "cards/?ordering=random&page_size=10&is_special=False"
 
 type State
   = Pending Question.Question
@@ -200,7 +200,7 @@ pickIdolQuestion idols seed =
 pickQuestion : Question.Quizz -> Model -> (Model, Effects Action)
 pickQuestion quizz model =
   case model.idols of
-    Nothing -> (model, getIdols ())
+    Nothing -> ({ model | state = Init }, getIdols ())
     Just idols ->
       case quizz of
         Question.Idols ->
@@ -210,8 +210,8 @@ pickQuestion quizz model =
 
         Question.Cards ->
           case model.cards of
-            Nothing -> (model, getRandomCards ())
-            Just [] -> (model, getRandomCards ())
+            Nothing -> ({ model | state = Init }, getRandomCards ())
+            Just [] -> ({ model | state = Init }, getRandomCards ())
             Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in
               let model = { model | state = state, seed = seed, cards = (Just cards) } in
