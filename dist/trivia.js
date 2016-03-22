@@ -11754,9 +11754,9 @@ Elm.Main.make = function (_elm) {
    var End = {ctor: "End"};
    var Pending = function (a) {    return {ctor: "Pending",_0: a};};
    var api_url = "http://schoolido.lu/api/";
-   var idols_url = A2($Basics._op["++"],api_url,"idols/?ordering=random&cards__is_special=False&page_size=100");
+   var idols_url = A2($Basics._op["++"],api_url,"idols/?ordering=random&for_trivia=True&page_size=100");
    var getIdols = function (_p5) {    return $Effects.task(A2($Task.map,$Question.GotIdols,$Task.toMaybe(A2($Http.get,idolDecoder,idols_url))));};
-   var random_cards_url = A2($Basics._op["++"],api_url,"cards/?ordering=random&page_size=10&is_special=False");
+   var random_cards_url = A2($Basics._op["++"],api_url,"cards/?ordering=random&page_size=10&for_trivia=True");
    var getRandomCards = function (_p6) {
       return $Effects.task(A2($Task.map,$Question.GotRandomCards,$Task.toMaybe(A2($Http.get,cardsDecoder,random_cards_url))));
    };

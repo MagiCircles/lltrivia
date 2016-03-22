@@ -49,10 +49,10 @@ api_url : String
 api_url = "http://schoolido.lu/api/"
 
 idols_url : String
-idols_url = api_url ++ "idols/?ordering=random&cards__is_special=False&page_size=100"
+idols_url = api_url ++ "idols/?ordering=random&for_trivia=True&page_size=100"
 
 random_cards_url : String
-random_cards_url = api_url ++ "cards/?ordering=random&page_size=10&is_special=False"
+random_cards_url = api_url ++ "cards/?ordering=random&page_size=10&for_trivia=True"
 
 type State
   = Pending Question.Question
