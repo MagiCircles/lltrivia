@@ -12864,6 +12864,7 @@ Elm.Main.make = function (_elm) {
    $Result = Elm.Result.make(_elm),
    $Signal = Elm.Signal.make(_elm),
    $StartApp = Elm.StartApp.make(_elm),
+   $String = Elm.String.make(_elm),
    $Sukutomo = Elm.Sukutomo.make(_elm),
    $Task = Elm.Task.make(_elm);
    var _op = {};
@@ -13009,7 +13010,7 @@ Elm.Main.make = function (_elm) {
    });
    _op["**"] = F2(function (func,value) {    return A3($Json$Decode.object2,F2(function (x,y) {    return x(y);}),func,value);});
    var idolDecoder = function () {
-      var idol = A2(_op["**"],
+      var idol = $Json$Decode.maybe(A2(_op["**"],
       A2(_op["**"],
       A2(_op["**"],
       A2(_op["**"],
@@ -13025,12 +13026,12 @@ Elm.Main.make = function (_elm) {
       A2($Json$Decode._op[":="],"height",$Json$Decode.$int)),
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"favorite_food",$Json$Decode.string))),
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"least_favorite_food",$Json$Decode.string))),
-      $Json$Decode.maybe(A2($Json$Decode._op[":="],"hobbies",$Json$Decode.string)));
+      $Json$Decode.maybe(A2($Json$Decode._op[":="],"hobbies",$Json$Decode.string))));
       return A2($Json$Decode._op[":="],"results",$Json$Decode.list(idol));
    }();
    var cardsDecoder = function () {
       var at_idol = $Json$Decode.at(_U.list(["idol"]));
-      var card = A2(_op["**"],
+      var card = $Json$Decode.maybe(A2(_op["**"],
       A2(_op["**"],
       A2(_op["**"],
       A2(_op["**"],
@@ -13044,7 +13045,7 @@ Elm.Main.make = function (_elm) {
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"card_image",$Json$Decode.string))),
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"transparent_image",$Json$Decode.string))),
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"card_idolized_image",$Json$Decode.string))),
-      $Json$Decode.maybe(A2($Json$Decode._op[":="],"transparent_idolized_image",$Json$Decode.string)));
+      $Json$Decode.maybe(A2($Json$Decode._op[":="],"transparent_idolized_image",$Json$Decode.string))));
       return A2($Json$Decode._op[":="],"results",$Json$Decode.list(card));
    }();
    var Model = F6(function (a,b,c,d,e,f) {    return {idols: a,quizz: b,state: c,cards: d,seed: e,score: f};});
@@ -13054,48 +13055,75 @@ Elm.Main.make = function (_elm) {
    var Pending = function (a) {    return {ctor: "Pending",_0: a};};
    var api_url = "http://schoolido.lu/api/";
    var idols_url = A2($Basics._op["++"],api_url,"idols/?for_trivia=True&page_size=100");
-   var getIdols = function (_p5) {    return $Effects.task(A2($Task.map,$Question.GotIdols,$Task.toMaybe(A2($Http.get,idolDecoder,idols_url))));};
    var random_cards_url = function (ids) {
       var aux = F2(function (ids,url) {
          aux: while (true) {
-            var _p6 = ids;
-            if (_p6.ctor === "[]") {
-                  return url;
+            var _p5 = ids;
+            if (_p5.ctor === "[]") {
+                  return A2($String.dropRight,1,url);
                } else {
-                  var _v10 = _p6._1,_v11 = A2($Basics._op["++"],url,A2($Basics._op["++"],",",$Basics.toString(_p6._0)));
+                  var _v10 = _p5._1,_v11 = A2($Basics._op["++"],url,A2($Basics._op["++"],$Basics.toString(_p5._0),","));
                   ids = _v10;
                   url = _v11;
                   continue aux;
                }
          }
       });
-      return A2(aux,ids,A2($Basics._op["++"],api_url,"cards/?page_size=10&for_trivia=True"));
+      return A2(aux,ids,A2($Basics._op["++"],api_url,"cards/?ids="));
+   };
+   var dropMaybe = function (l) {
+      var aux = F2(function (l,acc) {
+         aux: while (true) {
+            var _p6 = l;
+            if (_p6.ctor === "[]") {
+                  return acc;
+               } else {
+                  var _p8 = _p6._1;
+                  var _p7 = _p6._0;
+                  if (_p7.ctor === "Just") {
+                        var _v14 = _p8,_v15 = A2($List._op["::"],_p7._0,acc);
+                        l = _v14;
+                        acc = _v15;
+                        continue aux;
+                     } else {
+                        var _v16 = _p8,_v17 = acc;
+                        l = _v16;
+                        acc = _v17;
+                        continue aux;
+                     }
+               }
+         }
+      });
+      return A2(aux,l,_U.list([]));
+   };
+   var getIdols = function (_p9) {
+      return $Effects.task(A2($Task.map,$Question.GotIdols,$Task.toMaybe(A2($Task.map,dropMaybe,A2($Http.get,idolDecoder,idols_url)))));
    };
    var getCards = function (ids) {
-      return $Effects.task(A2($Task.map,$Question.GotRandomCards,$Task.toMaybe(A2($Http.get,cardsDecoder,random_cards_url(ids)))));
+      return $Effects.task(A2($Task.map,$Question.GotRandomCards,$Task.toMaybe(A2($Task.map,dropMaybe,A2($Http.get,cardsDecoder,random_cards_url(ids))))));
    };
    var shuffleList = F2(function (idols,seed) {
-      var _p7 = A2($Random$Array.shuffle,seed,$Array.fromList(idols));
-      var shuffled = _p7._0;
-      var seed$ = _p7._1;
+      var _p10 = A2($Random$Array.shuffle,seed,$Array.fromList(idols));
+      var shuffled = _p10._0;
+      var seed$ = _p10._1;
       return {ctor: "_Tuple2",_0: $Array.toList(shuffled),_1: seed$};
    });
    var randomChoices = F4(function (idol,num,idols,seed) {
       var aux = F4(function (arr,n,acc,seed) {
          aux: while (true) if (_U.eq(n,0)) return {ctor: "_Tuple2",_0: acc,_1: seed}; else {
-               var _p8 = A2($Random$Array.choose,seed,arr);
-               var choosen = _p8._0;
-               var seed$ = _p8._1;
-               var rest = _p8._2;
-               var _p9 = choosen;
-               if (_p9.ctor === "Nothing") {
+               var _p11 = A2($Random$Array.choose,seed,arr);
+               var choosen = _p11._0;
+               var seed$ = _p11._1;
+               var rest = _p11._2;
+               var _p12 = choosen;
+               if (_p12.ctor === "Nothing") {
                      return {ctor: "_Tuple2",_0: acc,_1: seed$};
                   } else {
-                     var _v13 = rest,_v14 = n - 1,_v15 = A2($List._op["::"],_p9._0,acc),_v16 = seed$;
-                     arr = _v13;
-                     n = _v14;
-                     acc = _v15;
-                     seed = _v16;
+                     var _v19 = rest,_v20 = n - 1,_v21 = A2($List._op["::"],_p12._0,acc),_v22 = seed$;
+                     arr = _v19;
+                     n = _v20;
+                     acc = _v21;
+                     seed = _v22;
                      continue aux;
                   }
             }
@@ -13105,87 +13133,87 @@ Elm.Main.make = function (_elm) {
    var getIdolAndOptions = F3(function (seed,name,idols) {
       var aux = F3(function (idols,acc,idol) {
          aux: while (true) {
-            var _p10 = idols;
-            if (_p10.ctor === "[]") {
+            var _p13 = idols;
+            if (_p13.ctor === "[]") {
                   return {ctor: "_Tuple2",_0: idol,_1: acc};
                } else {
-                  var _p12 = _p10._1;
-                  var _p11 = _p10._0;
-                  if (_U.eq(_p11.name,name)) {
-                        var _v18 = _p12,_v19 = acc,_v20 = $Maybe.Just(_p11);
-                        idols = _v18;
-                        acc = _v19;
-                        idol = _v20;
+                  var _p15 = _p13._1;
+                  var _p14 = _p13._0;
+                  if (_U.eq(_p14.name,name)) {
+                        var _v24 = _p15,_v25 = acc,_v26 = $Maybe.Just(_p14);
+                        idols = _v24;
+                        acc = _v25;
+                        idol = _v26;
                         continue aux;
                      } else {
-                        var _v21 = _p12,_v22 = A2($List._op["::"],_p11,acc),_v23 = idol;
-                        idols = _v21;
-                        acc = _v22;
-                        idol = _v23;
+                        var _v27 = _p15,_v28 = A2($List._op["::"],_p14,acc),_v29 = idol;
+                        idols = _v27;
+                        acc = _v28;
+                        idol = _v29;
                         continue aux;
                      }
                }
          }
       });
-      var _p13 = A3(aux,idols,_U.list([]),$Maybe.Nothing);
-      if (_p13._0.ctor === "Just") {
-            var _p16 = _p13._0._0;
-            var _p14 = A4(randomChoices,_p16,5,$Array.fromList(_p13._1),seed);
-            var choices = _p14._0;
-            var seed$ = _p14._1;
-            var _p15 = A2(shuffleList,choices,seed$);
-            var shuffled = _p15._0;
-            var seed$$ = _p15._1;
-            return {ctor: "_Tuple2",_0: $Maybe.Just({ctor: "_Tuple2",_0: _p16,_1: shuffled}),_1: seed$$};
+      var _p16 = A3(aux,idols,_U.list([]),$Maybe.Nothing);
+      if (_p16._0.ctor === "Just") {
+            var _p19 = _p16._0._0;
+            var _p17 = A4(randomChoices,_p19,5,$Array.fromList(_p16._1),seed);
+            var choices = _p17._0;
+            var seed$ = _p17._1;
+            var _p18 = A2(shuffleList,choices,seed$);
+            var shuffled = _p18._0;
+            var seed$$ = _p18._1;
+            return {ctor: "_Tuple2",_0: $Maybe.Just({ctor: "_Tuple2",_0: _p19,_1: shuffled}),_1: seed$$};
          } else {
             return {ctor: "_Tuple2",_0: $Maybe.Nothing,_1: seed};
          }
    });
    var pickCardQuestion = F3(function (card,seed,idols) {
-      var _p17 = A2($Random$Array.sample,
+      var _p20 = A2($Random$Array.sample,
       seed,
       $Array.fromList(mapMaybe(_U.list([{ctor: "_Tuple2",_0: card.card_image,_1: card.transparent_image}
                                        ,{ctor: "_Tuple2",_0: card.card_idolized_image,_1: card.transparent_idolized_image}]))));
-      var images = _p17._0;
-      var seed$ = _p17._1;
-      var _p18 = images;
-      if (_p18.ctor === "Just") {
-            var _p21 = _p18._0._1;
-            var _p19 = A3(getIdolAndOptions,seed$,card.name,idols);
-            if (_p19._0.ctor === "Just") {
-                  var questions = _U.list([A2($Question.CardAttribute,_p21,card)
-                                          ,A2($Question.CardRarity,_p21,card)
-                                          ,A3($Question.CardDetail,_p18._0._0,_p19._0._0._0,_p19._0._0._1)]);
-                  var _p20 = A2($Random$Array.sample,_p19._1,$Array.fromList(questions));
-                  if (_p20._0.ctor === "Just") {
-                        return {ctor: "_Tuple2",_0: Pending($Question.newQuestion(_p20._0._0)),_1: _p20._1};
+      var images = _p20._0;
+      var seed$ = _p20._1;
+      var _p21 = images;
+      if (_p21.ctor === "Just") {
+            var _p24 = _p21._0._1;
+            var _p22 = A3(getIdolAndOptions,seed$,card.name,idols);
+            if (_p22._0.ctor === "Just") {
+                  var questions = _U.list([A2($Question.CardAttribute,_p24,card)
+                                          ,A2($Question.CardRarity,_p24,card)
+                                          ,A3($Question.CardDetail,_p21._0._0,_p22._0._0._0,_p22._0._0._1)]);
+                  var _p23 = A2($Random$Array.sample,_p22._1,$Array.fromList(questions));
+                  if (_p23._0.ctor === "Just") {
+                        return {ctor: "_Tuple2",_0: Pending($Question.newQuestion(_p23._0._0)),_1: _p23._1};
                      } else {
-                        return {ctor: "_Tuple2",_0: Debug("Error while picking question"),_1: _p20._1};
+                        return {ctor: "_Tuple2",_0: Debug("Error while picking question"),_1: _p23._1};
                      }
                } else {
-                  return {ctor: "_Tuple2",_0: Debug("Error while finding the correct idol"),_1: _p19._1};
+                  return {ctor: "_Tuple2",_0: Debug("Error while finding the correct idol"),_1: _p22._1};
                }
          } else {
             return {ctor: "_Tuple2",_0: Debug("Error while picking idol type"),_1: seed$};
          }
    });
    var pickIdolQuestion = F2(function (idols,seed) {
-      var _p22 = A2($Random$Array.choose,seed,$Array.fromList(idols));
-      if (_p22._0.ctor === "Just") {
-            var _p26 = _p22._0._0;
+      var _p25 = A2($Random$Array.choose,seed,$Array.fromList(idols));
+      if (_p25._0.ctor === "Just") {
+            var _p29 = _p25._0._0;
             var questions = A3(mapQuestion,
             $Question.IdolHobby,
-            _p26.hobbies,
-            A3(mapQuestion,$Question.IdolLeastFood,_p26.least_favorite_food,A3(mapQuestion,$Question.IdolFood,_p26.favorite_food,_U.list([]))));
-            var _p23 = A2($Random$Array.choose,_p22._1,$Array.fromList(questions));
-            if (_p23._0.ctor === "Just") {
-                  var _p24 = A4(randomChoices,_p26,5,_p22._2,_p23._1);
-                  var choices = _p24._0;
-                  var seed$$$ = _p24._1;
-                  var _p25 = A2(shuffleList,choices,seed$$$);
-                  var shuffled = _p25._0;
-                  var seed$$$$ = _p25._1;
-                  return {ctor: "_Tuple2",_0: Pending($Question.newQuestion(A2(_p23._0._0,_p26,shuffled))),_1: seed$$$$};
+            _p29.hobbies,
+            A3(mapQuestion,$Question.IdolLeastFood,_p29.least_favorite_food,A3(mapQuestion,$Question.IdolFood,_p29.favorite_food,_U.list([]))));
+            var _p26 = A2($Random$Array.choose,_p25._1,$Array.fromList(questions));
+            if (_p26._0.ctor === "Just") {
+                  var _p27 = A4(randomChoices,_p29,5,_p25._2,_p26._1);
+                  var choices = _p27._0;
+                  var seed$$$ = _p27._1;
+                  var _p28 = A2(shuffleList,choices,seed$$$);
+                  var shuffled = _p28._0;
+                  var seed$$$$ = _p28._1;
+                  return {ctor: "_Tuple2",_0: Pending($Question.newQuestion(A2(_p26._0._0,_p29,shuffled))),_1: seed$$$$};
                } else {
                   return {ctor: "_Tuple2",_0: Debug("Error while choosing a question"),_1: seed};
                }
@@ -13201,19 +13229,19 @@ Elm.Main.make = function (_elm) {
    var getRandomIds = F2(function (n,s) {
       var aux = F3(function (n,s,acc) {
          aux: while (true) {
-            var _p27 = n;
-            if (_p27 === 0) {
+            var _p30 = n;
+            if (_p30 === 0) {
                   return {ctor: "_Tuple2",_0: acc,_1: s};
                } else {
                   var gen = A2($Random.$int,1,cardTotal);
-                  var _p28 = A2($Random.generate,gen,s);
-                  var rand_int = _p28._0;
-                  var s = _p28._1;
+                  var _p31 = A2($Random.generate,gen,s);
+                  var rand_int = _p31._0;
+                  var s = _p31._1;
                   var acc = A2($List._op["::"],rand_int,acc);
-                  var _v31 = _p27 - 1,_v32 = s,_v33 = acc;
-                  n = _v31;
-                  s = _v32;
-                  acc = _v33;
+                  var _v37 = _p30 - 1,_v38 = s,_v39 = acc;
+                  n = _v37;
+                  s = _v38;
+                  acc = _v39;
                   continue aux;
                }
          }
@@ -13222,48 +13250,48 @@ Elm.Main.make = function (_elm) {
    });
    var pickQuestion = F2(function (quizz,model) {
       pickQuestion: while (true) {
-         var _p29 = model.idols;
-         if (_p29.ctor === "Nothing") {
+         var _p32 = model.idols;
+         if (_p32.ctor === "Nothing") {
                return {ctor: "_Tuple2",_0: _U.update(model,{state: Init}),_1: getIdols({ctor: "_Tuple0"})};
             } else {
-               var _p38 = _p29._0;
-               var _p30 = quizz;
-               switch (_p30.ctor)
-               {case "Idols": var _p31 = A2(pickIdolQuestion,_p38,model.seed);
-                    var state = _p31._0;
-                    var seed = _p31._1;
+               var _p41 = _p32._0;
+               var _p33 = quizz;
+               switch (_p33.ctor)
+               {case "Idols": var _p34 = A2(pickIdolQuestion,_p41,model.seed);
+                    var state = _p34._0;
+                    var seed = _p34._1;
                     var model = _U.update(model,{state: state,seed: seed});
                     return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
-                  case "Cards": var _p32 = model.cards;
-                    if (_p32.ctor === "Nothing") {
-                          var _p33 = A2(getRandomIds,20,model.seed);
-                          var ids = _p33._0;
-                          var seed = _p33._1;
+                  case "Cards": var _p35 = model.cards;
+                    if (_p35.ctor === "Nothing") {
+                          var _p36 = A2(getRandomIds,1,model.seed);
+                          var ids = _p36._0;
+                          var seed = _p36._1;
                           return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
                        } else {
-                          if (_p32._0.ctor === "[]") {
-                                var _p34 = A2(getRandomIds,20,model.seed);
-                                var ids = _p34._0;
-                                var seed = _p34._1;
+                          if (_p35._0.ctor === "[]") {
+                                var _p37 = A2(getRandomIds,1,model.seed);
+                                var ids = _p37._0;
+                                var seed = _p37._1;
                                 return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
                              } else {
-                                var _p35 = A3(pickCardQuestion,_p32._0._0,model.seed,_p38);
-                                var state = _p35._0;
-                                var seed = _p35._1;
-                                var model = _U.update(model,{state: state,seed: seed,cards: $Maybe.Just(_p32._0._1)});
+                                var _p38 = A3(pickCardQuestion,_p35._0._0,model.seed,_p41);
+                                var state = _p38._0;
+                                var seed = _p38._1;
+                                var model = _U.update(model,{state: state,seed: seed,cards: $Maybe.Just(_p35._0._1)});
                                 return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
                              }
                        }
                   default: var choices = $Array.fromList(_U.list([$Question.Cards,$Question.Idols]));
-                    var _p36 = A2($Random$Array.sample,model.seed,choices);
-                    var choice = _p36._0;
-                    var seed = _p36._1;
+                    var _p39 = A2($Random$Array.sample,model.seed,choices);
+                    var choice = _p39._0;
+                    var seed = _p39._1;
                     var model = _U.update(model,{seed: seed});
-                    var _p37 = choice;
-                    if (_p37.ctor === "Just") {
-                          var _v38 = _p37._0,_v39 = model;
-                          quizz = _v38;
-                          model = _v39;
+                    var _p40 = choice;
+                    if (_p40.ctor === "Just") {
+                          var _v44 = _p40._0,_v45 = model;
+                          quizz = _v44;
+                          model = _v45;
                           continue pickQuestion;
                        } else {
                           return {ctor: "_Tuple2",_0: _U.update(model,{state: Debug("Error while picking quizz")}),_1: $Effects.none};
@@ -13272,41 +13300,41 @@ Elm.Main.make = function (_elm) {
       }
    });
    var update = F2(function (action,model) {
-      var _p39 = action;
-      switch (_p39.ctor)
+      var _p42 = action;
+      switch (_p42.ctor)
       {case "Restart": var model = _U.update(model,{score: _U.list([])});
            return A2(pickQuestion,model.quizz,model);
-         case "ChangeQuizz": var model = _U.update(model,{score: _U.list([]),quizz: _p39._0});
+         case "ChangeQuizz": var model = _U.update(model,{score: _U.list([]),quizz: _p42._0});
            return A2(pickQuestion,model.quizz,model);
-         case "Answer": var score = $Question.checkAnswer(_p39._0);
+         case "Answer": var score = $Question.checkAnswer(_p42._0);
            var model = _U.update(model,{score: A2($List._op["::"],score,model.score)});
            if (!_U.eq($List.length(model.score),10)) return A2(pickQuestion,model.quizz,model); else {
                  var model = _U.update(model,{state: End});
                  return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
               }
-         case "GotIdols": var _p42 = _p39._0;
-           var model = function () {
-              var _p40 = _p42;
-              if (_p40.ctor === "Just") {
-                    var _p41 = A2(shuffleList,_p40._0,model.seed);
-                    var idols = _p41._0;
-                    var seed = _p41._1;
-                    return _U.update(model,{idols: $Maybe.Just(idols),seed: seed});
-                 } else {
-                    return _U.update(model,{idols: _p42});
-                 }
-           }();
-           return A2(pickQuestion,model.quizz,model);
-         default: var _p45 = _p39._0;
+         case "GotIdols": var _p45 = _p42._0;
            var model = function () {
               var _p43 = _p45;
               if (_p43.ctor === "Just") {
                     var _p44 = A2(shuffleList,_p43._0,model.seed);
-                    var cards = _p44._0;
+                    var idols = _p44._0;
                     var seed = _p44._1;
+                    return _U.update(model,{idols: $Maybe.Just(idols),seed: seed});
+                 } else {
+                    return _U.update(model,{idols: _p45});
+                 }
+           }();
+           return A2(pickQuestion,model.quizz,model);
+         default: var _p48 = _p42._0;
+           var model = function () {
+              var _p46 = _p48;
+              if (_p46.ctor === "Just") {
+                    var _p47 = A2(shuffleList,_p46._0,model.seed);
+                    var cards = _p47._0;
+                    var seed = _p47._1;
                     return _U.update(model,{cards: $Maybe.Just(cards),seed: seed});
                  } else {
-                    return _U.update(model,{cards: _p45});
+                    return _U.update(model,{cards: _p48});
                  }
            }();
            return A2(pickQuestion,model.quizz,model);}
@@ -13318,14 +13346,14 @@ Elm.Main.make = function (_elm) {
    });
    var view = F2(function (address,model) {
       var str = function () {
-         var _p46 = model.state;
-         switch (_p46.ctor)
-         {case "Debug": return $Html.text(_p46._0);
+         var _p49 = model.state;
+         switch (_p49.ctor)
+         {case "Debug": return $Html.text(_p49._0);
             case "End": return A2(resultView,address,model);
-            case "Pending": var _p47 = _p46._0;
+            case "Pending": var _p50 = _p49._0;
               var quizzbuttons = A2(formatQuizzButtons,address,model.quizz);
-              var fquestion = A2($Question.questionToHtml,_p47,btnColor);
-              var foptions = A2($Question.optionsToHtml,address,_p47);
+              var fquestion = A2($Question.questionToHtml,_p50,btnColor);
+              var foptions = A2($Question.optionsToHtml,address,_p50);
               var fprogress = formatProgress(model.score);
               return A2($Html.div,_U.list([]),A2($Basics._op["++"],_U.list([quizzbuttons,fquestion]),A2($Basics._op["++"],foptions,_U.list([fprogress]))));
             default: return A2($Html.i,_U.list([$Html$Attributes.$class("flaticon-loading")]),_U.list([]));}
@@ -13345,6 +13373,7 @@ Elm.Main.make = function (_elm) {
                              ,randomChoices: randomChoices
                              ,shuffleList: shuffleList
                              ,getRandomIds: getRandomIds
+                             ,dropMaybe: dropMaybe
                              ,api_url: api_url
                              ,idols_url: idols_url
                              ,random_cards_url: random_cards_url

@@ -55,6 +55,16 @@ getRandomIds n s =
              aux (n - 1) s acc in
   aux n s []
 
+dropMaybe : List (Maybe a) -> List a
+dropMaybe l =
+  let aux l acc =
+      case l of
+        [] -> acc
+        x::xs ->
+          case x of
+            Just a -> aux xs (a::acc)
+            Nothing -> aux xs acc in
+  aux l []
 
 -- Types and constants
 
@@ -68,9 +78,9 @@ random_cards_url : List Int -> String
 random_cards_url ids =
   let aux ids url =
       case ids of
-        [] -> url
-        x::xs -> aux xs (url ++ "," ++ (toString x)) in
-  aux ids (api_url ++ "cards/?page_size=10&for_trivia=True")
+        [] -> String.dropRight 1 url
+        x::xs -> aux xs (url ++ (toString x) ++ ",") in
+  aux ids (api_url ++ "cards/?ids=")
 
 type State
   = Pending Question.Question
@@ -102,11 +112,10 @@ init =
 (**) : Json.Decoder (a -> b) -> Json.Decoder a -> Json.Decoder b
 (**) func value = Json.object2 (<|) func value
 
-idolDecoder : Json.Decoder (List Idol)
+idolDecoder : Json.Decoder (List (Maybe Idol))
 idolDecoder =
   let idol =
-    Json.map Idol
-          ("name" := Json.string)
+    Json.maybe (Json.map Idol ("name" := Json.string)
           ** ("japanese_name" := Json.string)
           ** ("chibi_small" := Json.string)
           ** ("attribute" := Json.string)
@@ -114,22 +123,22 @@ idolDecoder =
           ** ("height" := Json.int)
           ** (Json.maybe ("favorite_food" := Json.string))
           ** (Json.maybe ("least_favorite_food" := Json.string))
-          ** (Json.maybe ("hobbies" := Json.string))
+          ** (Json.maybe ("hobbies" := Json.string)))
   in
   "results" := Json.list idol
 
-cardsDecoder : Json.Decoder (List Card)
+cardsDecoder : Json.Decoder (List (Maybe Card))
 cardsDecoder =
   let at_idol = Json.at ["idol"] in
   let card =
-    Json.map Card (at_idol ("name" := Json.string))
+    Json.maybe ( Json.map Card (at_idol ("name" := Json.string))
           ** (at_idol ("japanese_name" := Json.string))
           ** ("rarity" := Json.string)
           ** ("attribute" := Json.string)
           ** (Json.maybe ("card_image" := Json.string))
           ** (Json.maybe ("transparent_image" := Json.string))
           ** (Json.maybe ("card_idolized_image" := Json.string))
-          ** (Json.maybe ("transparent_idolized_image" := Json.string))
+          ** (Json.maybe ("transparent_idolized_image" := Json.string)))
   in
   "results" := Json.list card
 
@@ -231,10 +240,10 @@ pickQuestion quizz model =
         Question.Cards ->
           case model.cards of
             Nothing ->
-              let (ids, seed) = getRandomIds 20 model.seed in
+              let (ids, seed) = getRandomIds 1 model.seed in
               ({ model | state = Init, seed = seed }, getCards ids)
             Just [] ->
-              let (ids, seed) = getRandomIds 20 model.seed in
+              let (ids, seed) = getRandomIds 1 model.seed in
               ({ model | state = Init, seed = seed }, getCards ids)
             Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in
@@ -416,6 +425,7 @@ view address model =
 getIdols : () -> Effects Action
 getIdols _ =
  Http.get idolDecoder idols_url
+    |> Task.map dropMaybe
     |> Task.toMaybe
     |> Task.map Question.GotIdols
     |> Effects.task
@@ -423,6 +433,7 @@ getIdols _ =
 getCards : (List Int) -> Effects Action
 getCards ids =
   Http.get cardsDecoder (random_cards_url ids)
+    |> Task.map dropMaybe
     |> Task.toMaybe
     |> Task.map Question.GotRandomCards
     |> Effects.task
