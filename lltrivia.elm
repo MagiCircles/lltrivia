@@ -21,6 +21,7 @@ import Random exposing (Seed)
 
 port randomSeed : Float
 port btnColor : String
+port cardTotal : Int
 
 type alias Action = Question.Action
 
@@ -38,10 +39,22 @@ randomChoices idol num idols seed =
   in
     aux idols num [idol] seed
 
-shuffleList : List Idol -> Seed -> (List Idol, Seed)
+shuffleList : List a -> Seed -> (List a, Seed)
 shuffleList idols seed =
   let (shuffled, seed') = shuffle seed (Array.fromList idols) in
   (Array.toList shuffled, seed')
+
+getRandomIds : Int -> Seed -> (List Int, Seed)
+getRandomIds n s =
+  let aux n s acc =
+      case n of
+        0 -> (acc, s)
+        n -> let gen = Random.int 1 cardTotal in
+             let (rand_int, s) = Random.generate gen s in
+             let acc = rand_int::acc in
+             aux (n - 1) s acc in
+  aux n s []
+
 
 -- Types and constants
 
@@ -49,10 +62,15 @@ api_url : String
 api_url = "http://schoolido.lu/api/"
 
 idols_url : String
-idols_url = api_url ++ "idols/?ordering=random&for_trivia=True&page_size=100"
+idols_url = api_url ++ "idols/?for_trivia=True&page_size=100"
 
-random_cards_url : String
-random_cards_url = api_url ++ "cards/?ordering=random&page_size=10&for_trivia=True"
+random_cards_url : List Int -> String
+random_cards_url ids =
+  let aux ids url =
+      case ids of
+        [] -> url
+        x::xs -> aux xs (url ++ "," ++ (toString x)) in
+  aux ids (api_url ++ "cards/?page_size=10&for_trivia=True")
 
 type State
   = Pending Question.Question
@@ -87,7 +105,8 @@ init =
 idolDecoder : Json.Decoder (List Idol)
 idolDecoder =
   let idol =
-    Json.map Idol ("name" := Json.string)
+    Json.map Idol
+          ("name" := Json.string)
           ** ("japanese_name" := Json.string)
           ** ("chibi_small" := Json.string)
           ** ("attribute" := Json.string)
@@ -101,9 +120,10 @@ idolDecoder =
 
 cardsDecoder : Json.Decoder (List Card)
 cardsDecoder =
+  let at_idol = Json.at ["idol"] in
   let card =
-    Json.map Card ("name" := Json.string)
-          ** ("japanese_name" := Json.string)
+    Json.map Card (at_idol ("name" := Json.string))
+          ** (at_idol ("japanese_name" := Json.string))
           ** ("rarity" := Json.string)
           ** ("attribute" := Json.string)
           ** (Json.maybe ("card_image" := Json.string))
@@ -210,8 +230,12 @@ pickQuestion quizz model =
 
         Question.Cards ->
           case model.cards of
-            Nothing -> ({ model | state = Init }, getRandomCards ())
-            Just [] -> ({ model | state = Init }, getRandomCards ())
+            Nothing ->
+              let (ids, seed) = getRandomIds 20 model.seed in
+              ({ model | state = Init, seed = seed }, getCards ids)
+            Just [] ->
+              let (ids, seed) = getRandomIds 20 model.seed in
+              ({ model | state = Init, seed = seed }, getCards ids)
             Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in
               let model = { model | state = state, seed = seed, cards = (Just cards) } in
@@ -248,11 +272,21 @@ update action model =
         (model, Effects.none)
 
     Question.GotIdols i ->
-      let model = { model | idols = i } in
+      let model =
+            case i of
+              Just idols ->
+                let (idols, seed) = shuffleList idols model.seed in
+                { model | idols = (Just idols), seed = seed }
+              Nothing -> { model | idols = i } in
       pickQuestion model.quizz model
 
     Question.GotRandomCards cards ->
-      let model = { model | cards = cards } in
+      let model =
+            case cards of
+              Just cards ->
+                let (cards, seed) = shuffleList cards model.seed in
+                { model | cards = (Just cards), seed = seed }
+              Nothing -> { model | cards = cards } in
       pickQuestion model.quizz model
 
 -- Views related stuff
@@ -386,9 +420,9 @@ getIdols _ =
     |> Task.map Question.GotIdols
     |> Effects.task
 
-getRandomCards : () -> Effects Action
-getRandomCards _ =
-  Http.get cardsDecoder random_cards_url
+getCards : (List Int) -> Effects Action
+getCards ids =
+  Http.get cardsDecoder (random_cards_url ids)
     |> Task.toMaybe
     |> Task.map Question.GotRandomCards
     |> Effects.task
