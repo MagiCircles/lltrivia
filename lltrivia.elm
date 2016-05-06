@@ -245,10 +245,10 @@ pickQuestion quizz model =
         Question.Cards ->
           case model.cards of
             Nothing ->
-              let (ids, seed) = getRandomIds 1 model.seed in
+              let (ids, seed) = getRandomIds 20 model.seed in
               ({ model | state = Init, seed = seed }, getCards ids)
             Just [] ->
-              let (ids, seed) = getRandomIds 1 model.seed in
+              let (ids, seed) = getRandomIds 20 model.seed in
               ({ model | state = Init, seed = seed }, getCards ids)
             Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in

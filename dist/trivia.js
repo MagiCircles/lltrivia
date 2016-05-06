@@ -13265,13 +13265,13 @@ Elm.Main.make = function (_elm) {
                        return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
                      case "Cards": var _p35 = model.cards;
                        if (_p35.ctor === "Nothing") {
-                             var _p36 = A2(getRandomIds,1,model.seed);
+                             var _p36 = A2(getRandomIds,20,model.seed);
                              var ids = _p36._0;
                              var seed = _p36._1;
                              return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
                           } else {
                              if (_p35._0.ctor === "[]") {
-                                   var _p37 = A2(getRandomIds,1,model.seed);
+                                   var _p37 = A2(getRandomIds,20,model.seed);
                                    var ids = _p37._0;
                                    var seed = _p37._1;
                                    return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
