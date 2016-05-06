@@ -13048,9 +13048,10 @@ Elm.Main.make = function (_elm) {
       $Json$Decode.maybe(A2($Json$Decode._op[":="],"transparent_idolized_image",$Json$Decode.string))));
       return A2($Json$Decode._op[":="],"results",$Json$Decode.list(card));
    }();
-   var Model = F6(function (a,b,c,d,e,f) {    return {idols: a,quizz: b,state: c,cards: d,seed: e,score: f};});
+   var Model = F7(function (a,b,c,d,e,f,g) {    return {idols: a,quizz: b,state: c,cards: d,seed: e,score: f,retry: g};});
    var Init = {ctor: "Init"};
    var Debug = function (a) {    return {ctor: "Debug",_0: a};};
+   var NetworkFailure = {ctor: "NetworkFailure"};
    var End = {ctor: "End"};
    var Pending = function (a) {    return {ctor: "Pending",_0: a};};
    var api_url = "http://schoolido.lu/api/";
@@ -13249,55 +13250,55 @@ Elm.Main.make = function (_elm) {
       return A3(aux,n,s,_U.list([]));
    });
    var pickQuestion = F2(function (quizz,model) {
-      pickQuestion: while (true) {
-         var _p32 = model.idols;
-         if (_p32.ctor === "Nothing") {
-               return {ctor: "_Tuple2",_0: _U.update(model,{state: Init}),_1: getIdols({ctor: "_Tuple0"})};
-            } else {
-               var _p41 = _p32._0;
-               var _p33 = quizz;
-               switch (_p33.ctor)
-               {case "Idols": var _p34 = A2(pickIdolQuestion,_p41,model.seed);
-                    var state = _p34._0;
-                    var seed = _p34._1;
-                    var model = _U.update(model,{state: state,seed: seed});
-                    return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
-                  case "Cards": var _p35 = model.cards;
-                    if (_p35.ctor === "Nothing") {
-                          var _p36 = A2(getRandomIds,1,model.seed);
-                          var ids = _p36._0;
-                          var seed = _p36._1;
-                          return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
-                       } else {
-                          if (_p35._0.ctor === "[]") {
-                                var _p37 = A2(getRandomIds,1,model.seed);
-                                var ids = _p37._0;
-                                var seed = _p37._1;
-                                return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
-                             } else {
-                                var _p38 = A3(pickCardQuestion,_p35._0._0,model.seed,_p41);
-                                var state = _p38._0;
-                                var seed = _p38._1;
-                                var model = _U.update(model,{state: state,seed: seed,cards: $Maybe.Just(_p35._0._1)});
-                                return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
-                             }
-                       }
-                  default: var choices = $Array.fromList(_U.list([$Question.Cards,$Question.Idols]));
-                    var _p39 = A2($Random$Array.sample,model.seed,choices);
-                    var choice = _p39._0;
-                    var seed = _p39._1;
-                    var model = _U.update(model,{seed: seed});
-                    var _p40 = choice;
-                    if (_p40.ctor === "Just") {
-                          var _v44 = _p40._0,_v45 = model;
-                          quizz = _v44;
-                          model = _v45;
-                          continue pickQuestion;
-                       } else {
-                          return {ctor: "_Tuple2",_0: _U.update(model,{state: Debug("Error while picking quizz")}),_1: $Effects.none};
-                       }}
-            }
-      }
+      pickQuestion: while (true) if (_U.cmp(model.retry,1) < 0) return {ctor: "_Tuple2",_0: _U.update(model,{state: NetworkFailure}),_1: $Effects.none}; else {
+            var _p32 = model.idols;
+            if (_p32.ctor === "Nothing") {
+                  return {ctor: "_Tuple2",_0: _U.update(model,{state: Init}),_1: getIdols({ctor: "_Tuple0"})};
+               } else {
+                  var _p41 = _p32._0;
+                  var _p33 = quizz;
+                  switch (_p33.ctor)
+                  {case "Idols": var _p34 = A2(pickIdolQuestion,_p41,model.seed);
+                       var state = _p34._0;
+                       var seed = _p34._1;
+                       var model = _U.update(model,{state: state,seed: seed});
+                       return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
+                     case "Cards": var _p35 = model.cards;
+                       if (_p35.ctor === "Nothing") {
+                             var _p36 = A2(getRandomIds,1,model.seed);
+                             var ids = _p36._0;
+                             var seed = _p36._1;
+                             return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
+                          } else {
+                             if (_p35._0.ctor === "[]") {
+                                   var _p37 = A2(getRandomIds,1,model.seed);
+                                   var ids = _p37._0;
+                                   var seed = _p37._1;
+                                   return {ctor: "_Tuple2",_0: _U.update(model,{state: Init,seed: seed}),_1: getCards(ids)};
+                                } else {
+                                   var _p38 = A3(pickCardQuestion,_p35._0._0,model.seed,_p41);
+                                   var state = _p38._0;
+                                   var seed = _p38._1;
+                                   var model = _U.update(model,{state: state,seed: seed,cards: $Maybe.Just(_p35._0._1)});
+                                   return {ctor: "_Tuple2",_0: model,_1: $Effects.none};
+                                }
+                          }
+                     default: var choices = $Array.fromList(_U.list([$Question.Cards,$Question.Idols]));
+                       var _p39 = A2($Random$Array.sample,model.seed,choices);
+                       var choice = _p39._0;
+                       var seed = _p39._1;
+                       var model = _U.update(model,{seed: seed});
+                       var _p40 = choice;
+                       if (_p40.ctor === "Just") {
+                             var _v44 = _p40._0,_v45 = model;
+                             quizz = _v44;
+                             model = _v45;
+                             continue pickQuestion;
+                          } else {
+                             return {ctor: "_Tuple2",_0: _U.update(model,{state: Debug("Error while picking quizz")}),_1: $Effects.none};
+                          }}
+               }
+         }
    });
    var update = F2(function (action,model) {
       var _p42 = action;
@@ -13321,12 +13322,12 @@ Elm.Main.make = function (_elm) {
                     var seed = _p44._1;
                     return _U.update(model,{idols: $Maybe.Just(idols),seed: seed});
                  } else {
-                    return _U.update(model,{idols: _p45});
+                    return _U.cmp(model.retry,1) > -1 ? _U.update(model,{idols: _p45,retry: model.retry - 1}) : _U.update(model,{state: NetworkFailure});
                  }
            }();
            return A2(pickQuestion,model.quizz,model);
          default: var _p48 = _p42._0;
-           var model = function () {
+           var model$ = function () {
               var _p46 = _p48;
               if (_p46.ctor === "Just") {
                     var _p47 = A2(shuffleList,_p46._0,model.seed);
@@ -13334,10 +13335,10 @@ Elm.Main.make = function (_elm) {
                     var seed = _p47._1;
                     return _U.update(model,{cards: $Maybe.Just(cards),seed: seed});
                  } else {
-                    return _U.update(model,{cards: _p48});
+                    return _U.cmp(model.retry,1) > -1 ? _U.update(model,{cards: _p48,retry: model.retry - 1}) : _U.update(model,{state: NetworkFailure});
                  }
            }();
-           return A2(pickQuestion,model.quizz,model);}
+           return A2(pickQuestion,model$.quizz,model$);}
    });
    var btnColor = Elm.Native.Port.make(_elm).inbound("btnColor",
    "String",
@@ -13349,6 +13350,7 @@ Elm.Main.make = function (_elm) {
          var _p49 = model.state;
          switch (_p49.ctor)
          {case "Debug": return $Html.text(_p49._0);
+            case "NetworkFailure": return $Html.text("Network or Server problem, please refresh");
             case "End": return A2(resultView,address,model);
             case "Pending": var _p50 = _p49._0;
               var quizzbuttons = A2(formatQuizzButtons,address,model.quizz);
@@ -13363,7 +13365,7 @@ Elm.Main.make = function (_elm) {
    var randomSeed = Elm.Native.Port.make(_elm).inbound("randomSeed","Float",function (v) {    return typeof v === "number" ? v : _U.badPort("a number",v);});
    var initialSeed = $Random.initialSeed($Basics.round(randomSeed));
    var init = {ctor: "_Tuple2"
-              ,_0: {score: _U.list([]),quizz: $Question.All,state: Init,idols: $Maybe.Nothing,cards: $Maybe.Nothing,seed: initialSeed}
+              ,_0: {score: _U.list([]),retry: 3,quizz: $Question.All,state: Init,idols: $Maybe.Nothing,cards: $Maybe.Nothing,seed: initialSeed}
               ,_1: getIdols({ctor: "_Tuple0"})};
    var app = $StartApp.start({init: init,update: update,view: view,inputs: _U.list([])});
    var main = app.html;
@@ -13379,6 +13381,7 @@ Elm.Main.make = function (_elm) {
                              ,random_cards_url: random_cards_url
                              ,Pending: Pending
                              ,End: End
+                             ,NetworkFailure: NetworkFailure
                              ,Debug: Debug
                              ,Init: Init
                              ,Model: Model

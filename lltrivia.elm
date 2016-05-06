@@ -85,6 +85,7 @@ random_cards_url ids =
 type State
   = Pending Question.Question
   | End
+  | NetworkFailure
   | Debug String
   | Init
 
@@ -95,11 +96,13 @@ type alias Model =
   , cards : Maybe (List Card)
   , seed : Seed
   , score : List Bool
+  , retry : Int
   }
 
 init : (Model, Effects Action)
 init =
   ({ score = []
+   , retry = 3
    , quizz = Question.All
    , state = Init
    , idols = Nothing
@@ -228,6 +231,8 @@ pickIdolQuestion idols seed =
 
 pickQuestion : Question.Quizz -> Model -> (Model, Effects Action)
 pickQuestion quizz model =
+  if model.retry < 1 then
+    ({ model | state = NetworkFailure }, Effects.none) else
   case model.idols of
     Nothing -> ({ model | state = Init }, getIdols ())
     Just idols ->
@@ -286,17 +291,27 @@ update action model =
               Just idols ->
                 let (idols, seed) = shuffleList idols model.seed in
                 { model | idols = (Just idols), seed = seed }
-              Nothing -> { model | idols = i } in
+              Nothing ->
+                if model.retry >= 1 then
+                  { model | idols = i, retry = (model.retry - 1) }
+                else
+                  { model | state = NetworkFailure }
+      in
       pickQuestion model.quizz model
 
     Question.GotRandomCards cards ->
-      let model =
+      let model' =
             case cards of
               Just cards ->
                 let (cards, seed) = shuffleList cards model.seed in
                 { model | cards = (Just cards), seed = seed }
-              Nothing -> { model | cards = cards } in
-      pickQuestion model.quizz model
+              Nothing ->
+                if model.retry >= 1 then
+                  { model | cards = cards, retry = (model.retry - 1) }
+                else
+                  { model | state = NetworkFailure }
+      in
+      pickQuestion model'.quizz model'
 
 -- Views related stuff
 
@@ -402,6 +417,8 @@ view : Signal.Address Action -> Model -> Html
 view address model =
  let str = case model.state of
   Debug s -> text s
+
+  NetworkFailure -> text "Network or Server problem, please refresh"
 
   End -> resultView address model
 
