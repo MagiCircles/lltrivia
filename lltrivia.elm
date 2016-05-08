@@ -66,6 +66,17 @@ dropMaybe l =
             Nothing -> aux xs acc in
   aux l []
 
+dropNonExistant : Maybe (List Idol) -> List Card -> List Card
+dropNonExistant idols cards =
+  case idols of
+    Nothing -> []
+    Just idols ->
+      let aux c =
+          case List.filter (\a -> a.name == c.name) idols of
+            [] -> False
+            _ -> True in
+      List.filter aux cards
+
 -- Types and constants
 
 api_url : String
@@ -246,10 +257,10 @@ pickQuestion quizz model =
           case model.cards of
             Nothing ->
               let (ids, seed) = getRandomIds 20 model.seed in
-              ({ model | state = Init, seed = seed }, getCards ids)
+              ({ model | state = Init, seed = seed }, getCards ids model.idols)
             Just [] ->
               let (ids, seed) = getRandomIds 20 model.seed in
-              ({ model | state = Init, seed = seed }, getCards ids)
+              ({ model | state = Init, seed = seed }, getCards ids model.idols)
             Just (card::cards) ->
               let (state, seed) = pickCardQuestion card model.seed idols in
               let model = { model | state = state, seed = seed, cards = (Just cards) } in
@@ -447,10 +458,11 @@ getIdols _ =
     |> Task.map Question.GotIdols
     |> Effects.task
 
-getCards : (List Int) -> Effects Action
-getCards ids =
+getCards : List Int -> Maybe (List Idol) -> Effects Action
+getCards ids idols =
   Http.get cardsDecoder (random_cards_url ids)
     |> Task.map dropMaybe
+    |> Task.map (dropNonExistant idols)
     |> Task.toMaybe
     |> Task.map Question.GotRandomCards
     |> Effects.task
