@@ -112,7 +112,7 @@ questionToHtml question btnColor =
 
             SongPlay surl s _ _->
               let formatItunesURL id =
-                    "https://itunes.apple.com/lookup?id=" ++ toString s ++ "&callback=stamps.ports.songInfo.send" in
+                    "https://itunes.apple.com/lookup?id=" ++ toString s ++ "&callback=elm.ports.songInfo.send" in
               let content =
                     case surl of
                       Nothing ->

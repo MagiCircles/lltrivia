@@ -11412,7 +11412,7 @@ Elm.Question.make = function (_elm) {
               var formatItunesURL = function (id) {
                  return A2($Basics._op["++"],
                  "https://itunes.apple.com/lookup?id=",
-                 A2($Basics._op["++"],$Basics.toString(_p2),"&callback=stamps.ports.songInfo.send"));
+                 A2($Basics._op["++"],$Basics.toString(_p2),"&callback=elm.ports.songInfo.send"));
               };
               var content = function () {
                  var _p1 = _p0._0;
