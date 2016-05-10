@@ -1,4 +1,4 @@
-import Sukutomo exposing (Idol, Card)
+import Sukutomo exposing (Idol, Card, Song)
 import Question
 import Html exposing (..)
 import Html.Attributes exposing (..)
@@ -22,13 +22,14 @@ import Random exposing (Seed)
 port randomSeed : Float
 port btnColor : String
 port cardTotal : Int
+port songInfo : Signal Json.Value
 
 type alias Action = Question.Action
 
 initialSeed : Seed
 initialSeed = Random.initialSeed <| round randomSeed
 
-randomChoices : Idol -> Int -> Array.Array Idol -> Seed -> (List Idol, Seed)
+randomChoices : a -> Int -> Array.Array a -> Seed -> (List a, Seed)
 randomChoices idol num idols seed =
   let aux arr n acc seed =
         if n == 0 then (acc, seed) else
@@ -85,6 +86,9 @@ api_url = "http://schoolido.lu/api/"
 idols_url : String
 idols_url = api_url ++ "idols/?for_trivia=True&page_size=100"
 
+songs_url : String
+songs_url = api_url ++ "songs/?page_size=200"
+
 random_cards_url : List Int -> String
 random_cards_url ids =
   let aux ids url =
@@ -105,6 +109,7 @@ type alias Model =
   , quizz : Question.Quizz
   , state : State
   , cards : Maybe (List Card)
+  , songs : Maybe (List Song)
   , seed : Seed
   , score : List Bool
   , retry : Int
@@ -116,6 +121,7 @@ init =
    , retry = 3
    , quizz = Question.All
    , state = Init
+   , songs = Nothing
    , idols = Nothing
    , cards = Nothing
    , seed = initialSeed },
@@ -156,9 +162,21 @@ cardsDecoder =
   in
   "results" := Json.list card
 
+songsDecoder : Json.Decoder (List (Maybe Song))
+songsDecoder =
+  let song =
+    Json.maybe (Json.map Song ("name" := Json.string)
+          ** (Json.maybe ("romaji_name" := Json.string))
+          ** (Json.maybe ("translated_name" := Json.string))
+          ** ("attribute" := Json.string)
+          ** ("image" := Json.string)
+          ** (Json.maybe ("itunes_id" := Json.int)))
+  in
+  "results" := Json.list song
+
 -- update
 
-mapQuestion : (String -> a) -> Maybe String -> List a -> List a
+mapQuestion : (a -> b) -> Maybe a -> List b -> List b
 mapQuestion ctor element l =
   case element of
     Nothing -> l
@@ -221,6 +239,23 @@ pickCardQuestion card seed idols =
     Nothing ->
       (Debug "Error while picking idol type", seed')
 
+pickSongQuestion : List Song -> Seed -> (State, Seed)
+pickSongQuestion songs seed =
+  case choose seed (Array.fromList songs) of
+    (Just song, seed', songs) ->
+      let questions = mapQuestion (Question.SongPlay Nothing) song.itunes_id [] |>
+                      mapQuestion Question.SongCover (Just song.image) in
+      case choose seed' (Array.fromList questions) of
+        (Just question, seed'', _) ->
+          let (choices, seed''') = randomChoices song 5 songs seed'' in
+          let (shuffled, seed'''') = shuffleList choices seed''' in
+          (Pending <| Question.newQuestion (question song shuffled), seed'''')
+        (_, _, _) ->
+          (Debug "Error while choosing a question", seed)
+
+    (_, _, _)  ->
+          (Debug "Error while picking a song for this question", seed)
+
 pickIdolQuestion : List Idol -> Seed -> (State, Seed)
 pickIdolQuestion idols seed =
   case choose seed (Array.fromList idols) of
@@ -248,6 +283,14 @@ pickQuestion quizz model =
     Nothing -> ({ model | state = Init }, getIdols ())
     Just idols ->
       case quizz of
+        Question.Songs ->
+          case model.songs of
+            Nothing ->
+              ({ model | state = Init }, getSongs ())
+            Just songs ->
+              let (state, seed) = pickSongQuestion songs model.seed in
+              ({ model | state = state, seed = seed}, Effects.none)
+
         Question.Idols ->
           let (state, seed) = pickIdolQuestion idols model.seed in
           let model = { model | state = state, seed = seed } in
@@ -267,7 +310,7 @@ pickQuestion quizz model =
               (model, Effects.none)
 
         Question.All ->
-          let choices = Array.fromList [Question.Cards, Question.Idols] in
+          let choices = Array.fromList [Question.Cards, Question.Idols, Question.Songs] in
           let (choice, seed) = sample model.seed choices in
           let model = { model | seed = seed } in
           case choice of
@@ -324,6 +367,36 @@ update action model =
       in
       pickQuestion model'.quizz model'
 
+    Question.SongInfoReceived s ->
+      let decoder =
+            let preview = ("previewUrl" := Json.string) in
+            ("results" := (Json.tuple1 (\x -> x) preview)) in
+      let getUrl a = Json.decodeValue decoder a |> Result.toMaybe in
+      let url = getUrl s in
+      let model =
+            case model.state of
+              Pending question ->
+                case question.question of
+                  Question.SongPlay a b c d -> { model | state = Pending { question | question = Question.SongPlay url b c d} }
+                  _ -> model
+              _ -> model in
+      (model, Effects.none)
+
+    Question.GotSongs songs ->
+      let model' =
+            case songs of
+              Just songs ->
+                let (songs, seed) = shuffleList songs model.seed in
+                { model | songs = (Just songs), seed = seed }
+              Nothing ->
+                if model.retry >= 1 then
+                  { model | songs = songs, retry = (model.retry - 1) }
+                else
+                  { model | state = NetworkFailure }
+      in
+      pickQuestion model'.quizz model'
+
+
 -- Views related stuff
 
 formatQuizzButtons : Signal.Address Action -> Question.Quizz -> Html
@@ -344,6 +417,13 @@ formatQuizzButtons addr quizz =
               a [ href "#cards", onClick addr (Question.ChangeQuizz Question.Cards) ] [
                    i [ class "flaticon-cards" ] []
                   , text " Cards"
+                  ] ]
+       , li (case quizz of
+              Question.Songs -> [ class "active" ]
+              _ -> []) [
+              a [ href "#songs", onClick addr (Question.ChangeQuizz Question.Songs) ] [
+                   i [ class "flaticon-songs" ] []
+                  , text " Songs"
                   ] ]
        , li (case quizz of
               Question.Idols -> [ class "active" ]
@@ -467,13 +547,24 @@ getCards ids idols =
     |> Task.map Question.GotRandomCards
     |> Effects.task
 
+getSongs : () -> Effects Action
+getSongs _ =
+  Http.get songsDecoder songs_url
+    |> Task.map dropMaybe
+    |> Task.toMaybe
+    |> Task.map Question.GotSongs
+    |> Effects.task
+
+songInfoIncoming : Signal Action
+songInfoIncoming = Signal.map Question.SongInfoReceived songInfo
+
 app =
   StartApp.start
   {
      init = init
    , update = update
    , view = view
-   , inputs = []
+   , inputs = [ songInfoIncoming ]
   }
 
 main = app.html

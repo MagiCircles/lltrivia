@@ -22,3 +22,12 @@ type alias Card =
   , card_idolized_image : Maybe String
   , transparent_idolized_image : Maybe String
   }
+
+type alias Song =
+  { name : String
+  , romaji_name : Maybe String
+  , translated_name : Maybe String
+  , attribute : String
+  , image : String
+  , itunes_id : Maybe Int
+  }
