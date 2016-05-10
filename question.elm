@@ -121,7 +121,7 @@ questionToHtml question btnColor =
                         audio [controls True] [source [src url, type' "audio/mp4"] []  ] in
                     div [ class "row" ] [
                      div [ class "col-md-7" ] [
-                            span [ class "song-question" ] [ text "What is the name of this song?" ]
+                            span [ class "song-question" ] [ text "What is this song?" ]
                            ]
                     , div [ class "col-md-5" ] [
                              content
@@ -133,8 +133,9 @@ questionToHtml question btnColor =
                             span [ class "question-with-image" ] [ text "What is this song?" ]
                            ]
                     , div [ class "col-md-5" ] [
-                             img [ class "image-with-question"
-                                 , src s] []
+                             div [ class "song-image-question-detail"
+                                 , style [ ("background-image", "url('" ++ s ++ "')") ]
+                                 ] []
                             ]
                     ]
 
@@ -230,12 +231,11 @@ songOptions address question songs =
                  [ text element.name ]
               ]
           SongCover song _ _ ->
-            figure
+            div
               [class "trivia_song"
               ]
-              [a
-                 [ href "#"
-                 , onClick address (Answer <| (answerQuestion (SongAnswer element) question))
+              [span
+                 [ onClick address (Answer <| (answerQuestion (SongAnswer element) question))
                  ] [text element.name]
               ]
 

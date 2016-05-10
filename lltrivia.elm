@@ -422,7 +422,7 @@ formatQuizzButtons addr quizz =
               Question.Songs -> [ class "active" ]
               _ -> []) [
               a [ href "#songs", onClick addr (Question.ChangeQuizz Question.Songs) ] [
-                   i [ class "flaticon-songs" ] []
+                   i [ class "flaticon-song" ] []
                   , text " Songs"
                   ] ]
        , li (case quizz of
