@@ -43,6 +43,12 @@ type AnswerKind
   | StringAnswer String
   | SongAnswer Song
 
+getSongName : Song -> String
+getSongName song =
+  case song.romaji_name of
+    Just name -> name
+    Nothing -> song.name
+
 newQuestion : QuestionKind -> Question
 newQuestion question =
   { question = question, answer = Nothing }
@@ -217,6 +223,7 @@ idolOptions address question idols =
 songOptions : Signal.Address Action -> Question -> List Song -> List Html
 songOptions address question songs =
   let format element =
+        let name = getSongName element in
         case question.question of
           SongPlay _ song _ _ ->
             figure
@@ -225,10 +232,10 @@ songOptions address question songs =
               [img
                  [ src element.image
                  , onClick address (Answer <| (answerQuestion (SongAnswer element) question))
-                 ] [text element.name]
+                 ] [text name]
               , figcaption
                  []
-                 [ text element.name ]
+                 [ text name ]
               ]
           SongCover song _ _ ->
             div
@@ -236,7 +243,7 @@ songOptions address question songs =
               ]
               [span
                  [ onClick address (Answer <| (answerQuestion (SongAnswer element) question))
-                 ] [text element.name]
+                 ] [text name]
               ]
 
           _ -> div [] []
