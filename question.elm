@@ -271,17 +271,18 @@ optionsToHtml address question =
     SongPlay _ _ _ songs -> songOptions address question songs
 
     CardRarity _ _ -> imageOptions address question
-                       [ ("http://i.schoolido.lu/static/N" ++ btnColor ++ ".png", "N")
-                       , ("http://i.schoolido.lu/static/R" ++ btnColor ++ ".png", "R")
-                       , ("http://i.schoolido.lu/static/SR" ++ btnColor ++ ".png", "SR")
-                       , ("http://i.schoolido.lu/static/UR" ++ btnColor ++ ".png", "UR")
+                       [ ("https://i.schoolido.lu/static/N" ++ btnColor ++ ".png", "N")
+                       , ("https://i.schoolido.lu/static/R" ++ btnColor ++ ".png", "R")
+                       , ("https://i.schoolido.lu/static/SR" ++ btnColor ++ ".png", "SR")
+                       , ("https://i.schoolido.lu/static/SSR" ++ btnColor ++ ".png", "SSR")
+                       , ("https://i.schoolido.lu/static/UR" ++ btnColor ++ ".png", "UR")
                        ]
 
     CardAttribute _ _ -> imageOptions address question
-                         [ ("http://i.schoolido.lu/static/Smile.png", "Smile")
-                         , ("http://i.schoolido.lu/static/Pure.png", "Pure")
-                         , ("http://i.schoolido.lu/static/Cool.png", "Cool")
-                         , ("http://i.schoolido.lu/static/All.png", "All")
+                         [ ("https://i.schoolido.lu/static/Smile.png", "Smile")
+                         , ("https://i.schoolido.lu/static/Pure.png", "Pure")
+                         , ("https://i.schoolido.lu/static/Cool.png", "Cool")
+                         , ("https://i.schoolido.lu/static/All.png", "All")
                          ]
 
     CardDetail _ _ idols -> idolOptions address question idols
