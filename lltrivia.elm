@@ -81,7 +81,7 @@ dropNonExistant idols cards =
 -- Types and constants
 
 api_url : String
-api_url = "http://schoolido.lu/api/"
+api_url = "https://schoolido.lu/api/"
 
 idols_url : String
 idols_url = api_url ++ "idols/?for_trivia=True&page_size=100"
@@ -471,7 +471,7 @@ resultView addr model =
              [ p [ class "score_comment" ]
                 [ text comment ]
              , p [ class "text-right" ]
-                 [a [ href ("http://twitter.com/share?text=" ++ (toString score) ++ "/10 on School Idol Trivia! " ++ comment ++ " Play with me:&via=schoolidolu&url=http://schoolido.lu/trivia/&hashtags=LLSIF,LoveLive,スクフェス")
+                 [a [ href ("https://twitter.com/share?text=" ++ (toString score) ++ "/10 on School Idol Trivia! " ++ comment ++ " Play with me:&via=schoolidolu&url=https://schoolido.lu/trivia/&hashtags=LLSIF,LoveLive,スクフェス")
                     , target "_blank"
                     , class "btn btn-Cool"
                     ]
